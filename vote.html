@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- FIX #1: Content Security Policy — запрещает inline-скрипты со сторонних доменов -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com;
+                 script-src 'self' 'unsafe-inline' https://*.googleapis.com https://www.gstatic.com;
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' data: https://*.googleusercontent.com https://www.gstatic.com;
+                 connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com;">
+  <title>SV — Голосование</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="vote.css" />
+</head>
+<body>
+
+  <div class="page">
+
+    <header class="header">
+      <div class="logo" onclick="window.location.href='dashboard.html'" style="cursor:pointer">
+        <div class="logo-icon">SV</div>
+        <span class="logo-text">SecureVote</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span id="observerBadge" style="display:none" class="observer-badge">👁️ Наблюдатель</span>
+        <button class="btn-logout" onclick="window.location.href='dashboard.html'">← Назад</button>
+      </div>
+    </header>
+
+    <main class="vote-main">
+
+      <div id="loadingState" class="state-box">
+        <div class="spinner"></div>
+        <p>Загружаем голосование...</p>
+      </div>
+
+      <div id="voteState" style="display:none" class="vote-box">
+        <div class="vote-header">
+          <span class="vote-badge">🔒 Анонимное голосование</span>
+          <div class="vote-code" id="voteCode"></div>
+        </div>
+        <div id="closedBanner" style="display:none" class="closed-banner">🔒 Голосование закрыто</div>
+        <h1 id="voteQuestion" class="vote-question"></h1>
+        <div id="optionsList" class="options-list"></div>
+        <button class="btn-primary btn-vote" id="voteBtn" onclick="submitVote()">Проголосовать</button>
+        <p class="vote-note">Твой голос анонимен — никто не узнает твой выбор</p>
+      </div>
+
+      <div id="resultsState" style="display:none" class="vote-box">
+        <div class="vote-header">
+          <span class="vote-badge" id="resultsBadge">📊 Результаты</span>
+          <div class="vote-code" id="resultsCode"></div>
+        </div>
+        <div id="resultsClosedBanner" style="display:none" class="closed-banner">🔒 Голосование закрыто</div>
+        <h1 id="resultsQuestion" class="vote-question"></h1>
+
+        <div id="creatorControls" style="display:none">
+          <button class="btn-close-poll" id="closePollBtn" onclick="togglePoll()">🔒 Закрыть голосование</button>
+        </div>
+
+        <div id="resultsList" class="results-list"></div>
+        <p class="results-total" id="totalVotes"></p>
+
+        <div class="live-indicator" id="liveIndicator">
+          <span class="live-dot"></span> Обновляется в реальном времени
+        </div>
+
+        <div class="results-actions">
+          <button class="btn-secondary" onclick="window.location.href='dashboard.html'">← На главную</button>
+          <button class="btn-primary" onclick="shareCode()">Поделиться кодом</button>
+          <button class="btn-csv-vote" id="exportBtn" style="display:none" onclick="exportCSV()">📥 Скачать CSV</button>
+        </div>
+      </div>
+
+      <div id="errorState" style="display:none" class="state-box">
+        <div style="font-size:48px">❌</div>
+        <p>Голосование не найдено</p>
+        <button class="btn-primary" onclick="window.location.href='dashboard.html'">На главную</button>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc, updateDoc, setDoc, onSnapshot,
+      runTransaction, serverTimestamp, increment
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAZL7CGXvVdDscq2W0IU8lqRWY6X53nlQM",
+      authDomain: "vs-sv-6fbda.firebaseapp.com",
+      projectId: "vs-sv-6fbda",
+      storageBucket: "vs-sv-6fbda.firebasestorage.app",
+      messagingSenderId: "958043340271",
+      appId: "1:958043340271:web:22a1347feb4f76b0ebca1a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const pollId = urlParams.get("id");
+    const isObserver = urlParams.get("mode") === "observe";
+
+    let currentUser = null;
+    let pollData = null;
+    let selectedOption = null;
+    let isCreator = false;
+
+    // FIX #2: экранирование HTML — защита от XSS при вставке данных из БД
+    function escapeHTML(str) {
+      const div = document.createElement("div");
+      div.appendChild(document.createTextNode(String(str)));
+      return div.innerHTML;
+    }
+
+    async function hashUID(uid) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(uid + "sv_salt_2026");
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { window.location.href = "index.html"; return; }
+      currentUser = user;
+      if (!pollId) { showError(); return; }
+
+      if (isObserver) {
+        document.getElementById("observerBadge").style.display = "block";
+      }
+
+      await loadPoll();
+    });
+
+    async function loadPoll() {
+      try {
+        const pollRef = doc(db, "polls", pollId);
+        const pollSnap = await getDoc(pollRef);
+        if (!pollSnap.exists()) { showError(); return; }
+        pollData = pollSnap.data();
+        isCreator = pollData.createdBy === currentUser.uid;
+
+        if (isObserver) {
+          showResults(pollData);
+          startLiveResults();
+          return;
+        }
+
+        const hashedUID = await hashUID(currentUser.uid);
+        const voteSnap = await getDoc(doc(db, "votes", `${pollId}_${hashedUID}`));
+
+        if (voteSnap.exists() || pollData.closed) {
+          showResults(pollData);
+          startLiveResults();
+        } else {
+          showVote();
+        }
+      } catch (e) {
+        console.error("loadPoll error:", e);
+        showError();
+      }
+    }
+
+    function startLiveResults() {
+      onSnapshot(doc(db, "polls", pollId), (snap) => {
+        if (snap.exists()) {
+          pollData = snap.data();
+          updateResultsUI(pollData);
+        }
+      });
+    }
+
+    function showVote() {
+      document.getElementById("loadingState").style.display = "none";
+      document.getElementById("voteState").style.display = "block";
+
+      // FIX #2 применяется: escapeHTML для всех данных из БД
+      document.getElementById("voteCode").textContent = "Код: " + pollData.code;
+      document.getElementById("voteQuestion").textContent = pollData.question;
+
+      const list = document.getElementById("optionsList");
+      list.innerHTML = "";
+      pollData.options.forEach((option, i) => {
+        const div = document.createElement("div");
+        div.className = "option-item";
+        div.setAttribute("data-index", i);
+
+        // FIX #2: НЕ используем innerHTML с данными из БД — строим DOM вручную
+        const radio = document.createElement("div");
+        radio.className = "option-radio";
+        radio.id = `radio_${i}`;
+
+        const label = document.createElement("span");
+        label.textContent = option; // textContent вместо innerHTML — XSS невозможен
+
+        div.appendChild(radio);
+        div.appendChild(label);
+        div.onclick = () => selectOption(i);
+        list.appendChild(div);
+      });
+    }
+
+    window.selectOption = function(index) {
+      selectedOption = index;
+      document.querySelectorAll(".option-item").forEach((el, i) => {
+        el.classList.toggle("selected", i === index);
+        document.getElementById(`radio_${i}`).classList.toggle("checked", i === index);
+      });
+    };
+
+    // FIX #3: Атомарная транзакция — полностью устраняет race condition
+    // Старый код: читал results из памяти → инкрементировал → писал.
+    // Если два пользователя голосовали одновременно — один голос терялся.
+    // Новый код: runTransaction читает актуальные данные из БД ВНУТРИ транзакции.
+    window.submitVote = async function() {
+      if (selectedOption === null) { alert("Выбери вариант!"); return; }
+
+      const btn = document.getElementById("voteBtn");
+      btn.textContent = "Сохраняем...";
+      btn.disabled = true;
+
+      try {
+        const hashedUID = await hashUID(currentUser.uid);
+        const voteDocRef = doc(db, "votes", `${pollId}_${hashedUID}`);
+        const pollDocRef = doc(db, "polls", pollId);
+
+        await runTransaction(db, async (transaction) => {
+          // 1. Читаем голосование и проверяем статус ВНУТРИ транзакции
+          const pollSnap = await transaction.get(pollDocRef);
+          if (!pollSnap.exists()) throw new Error("poll_not_found");
+          const data = pollSnap.data();
+          if (data.closed) throw new Error("poll_closed");
+
+          // 2. Проверяем, не голосовал ли уже этот пользователь
+          const voteSnap = await transaction.get(voteDocRef);
+          if (voteSnap.exists()) throw new Error("already_voted");
+
+          // 3. Записываем голос
+          transaction.set(voteDocRef, {
+            optionIndex: selectedOption,
+            votedAt: serverTimestamp()
+            // УБРАЛИ uid и hashedUID из документа — минимум данных
+          });
+
+          // 4. Атомарно инкрементируем счётчик через increment() — без перезаписи всего объекта
+          const updateData = {};
+          updateData[`results.${selectedOption}`] = increment(1);
+          transaction.update(pollDocRef, updateData);
+        });
+
+        // Перезагружаем pollData из БД после транзакции
+        const fresh = await getDoc(pollDocRef);
+        pollData = fresh.data();
+        showResults(pollData);
+        startLiveResults();
+
+      } catch (e) {
+        btn.textContent = "Проголосовать";
+        btn.disabled = false;
+
+        if (e.message === "poll_closed") {
+          alert("Голосование уже закрыто!");
+        } else if (e.message === "already_voted") {
+          alert("Ты уже проголосовал в этом голосовании.");
+        } else if (e.message === "poll_not_found") {
+          alert("Голосование не найдено.");
+        } else {
+          console.error("Vote error:", e);
+          alert("Ошибка. Попробуй снова.");
+        }
+      }
+    };
+
+    function showResults(data) {
+      document.getElementById("loadingState").style.display = "none";
+      document.getElementById("voteState").style.display = "none";
+      document.getElementById("resultsState").style.display = "block";
+
+      // FIX #2: textContent вместо innerHTML
+      document.getElementById("resultsCode").textContent = "Код: " + data.code;
+      document.getElementById("resultsQuestion").textContent = data.question;
+
+      if (isCreator) {
+        document.getElementById("creatorControls").style.display = "block";
+        document.getElementById("exportBtn").style.display = "inline-flex";
+      }
+
+      if (isObserver) {
+        document.getElementById("resultsBadge").textContent = "👁️ Режим наблюдателя";
+      }
+
+      updateResultsUI(data);
+    }
+
+    function updateResultsUI(data) {
+      const total = Object.values(data.results).reduce((a, b) => a + b, 0);
+      document.getElementById("totalVotes").textContent = `Всего голосов: ${total}`;
+
+      const closedBanner = document.getElementById("resultsClosedBanner");
+      const liveIndicator = document.getElementById("liveIndicator");
+      const closePollBtn = document.getElementById("closePollBtn");
+
+      if (data.closed) {
+        closedBanner.style.display = "block";
+        liveIndicator.style.display = "none";
+        if (closePollBtn) { closePollBtn.textContent = "🔓 Открыть голосование"; closePollBtn.classList.add("btn-open"); }
+      } else {
+        closedBanner.style.display = "none";
+        liveIndicator.style.display = "flex";
+        if (closePollBtn) { closePollBtn.textContent = "🔒 Закрыть голосование"; closePollBtn.classList.remove("btn-open"); }
+      }
+
+      const list = document.getElementById("resultsList");
+      list.innerHTML = "";
+      data.options.forEach((option, i) => {
+        const votes = data.results[i] || 0;
+        const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+
+        // FIX #2: строим DOM элементы вручную, без innerHTML с данными из БД
+        const div = document.createElement("div");
+        div.className = "result-item";
+
+        const topRow = document.createElement("div");
+        topRow.className = "result-top";
+
+        const optionLabel = document.createElement("span");
+        optionLabel.className = "result-option";
+        optionLabel.textContent = option; // textContent — XSS невозможен
+
+        const percentLabel = document.createElement("span");
+        percentLabel.className = "result-percent";
+        percentLabel.textContent = percent + "%";
+
+        topRow.appendChild(optionLabel);
+        topRow.appendChild(percentLabel);
+
+        const barBg = document.createElement("div");
+        barBg.className = "result-bar-bg";
+        const bar = document.createElement("div");
+        bar.className = "result-bar";
+        bar.style.width = percent + "%";
+        barBg.appendChild(bar);
+
+        const votesLabel = document.createElement("span");
+        votesLabel.className = "result-votes";
+        votesLabel.textContent = votes + " голосов";
+
+        div.appendChild(topRow);
+        div.appendChild(barBg);
+        div.appendChild(votesLabel);
+        list.appendChild(div);
+      });
+    }
+
+    // FIX #4: togglePoll теперь проверяет isCreator на клиенте
+    // (полная защита — через Firestore Security Rules, см. инструкцию)
+    window.togglePoll = async function() {
+      if (!isCreator) {
+        alert("Только создатель может закрывать голосование.");
+        return;
+      }
+      try {
+        await updateDoc(doc(db, "polls", pollId), { closed: !pollData.closed });
+      } catch (e) {
+        console.error("togglePoll error:", e);
+        alert("Ошибка изменения статуса. Проверь права доступа.");
+      }
+    };
+
+    window.shareCode = function() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pollData.code).then(() => {
+          alert(`Код скопирован: ${pollData.code}`);
+        }).catch(() => {
+          prompt("Скопируй код вручную:", pollData.code);
+        });
+      } else {
+        prompt("Скопируй код вручную:", pollData.code);
+      }
+    };
+
+    window.exportCSV = function() {
+      if (!isCreator) return; // FIX #4: двойная проверка
+      const total = Object.values(pollData.results).reduce((a, b) => a + b, 0);
+      let csv = "Вариант,Голоса,Процент\n";
+      pollData.options.forEach((option, i) => {
+        const votes = pollData.results[i] || 0;
+        const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+        // Экранируем кавычки внутри значений CSV
+        const safeOption = option.replace(/"/g, '""');
+        csv += `"${safeOption}",${votes},${percent}%\n`;
+      });
+      csv += `\nВсего голосов,${total},100%\n`;
+      const safeQuestion = pollData.question.replace(/"/g, '""');
+      csv += `Вопрос,"${safeQuestion}"\n`;
+      csv += `Код,${pollData.code}\n`;
+      csv += `Статус,${pollData.closed ? "Закрыто" : "Активно"}\n`;
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sv_results_${pollData.code}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    function showError() {
+      document.getElementById("loadingState").style.display = "none";
+      document.getElementById("errorState").style.display = "block";
+    }
+  </script>
+
+</body>
+</html>

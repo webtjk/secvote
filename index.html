@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SV — Анонимное голосование</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="page">
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">SV</div>
+        <span class="logo-text">SecureVote</span>
+      </div>
+    </header>
+
+    <main class="hero">
+      <div class="hero-content">
+        <div class="badge">🔒 100% Анонимно</div>
+        <h1 class="hero-title">
+          Голосуй честно.<br/>
+          <span class="highlight">Никто не узнает.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Создавай голосования или присоединяйся по коду.<br/>
+          Результаты видят все — кто как голосовал, не знает никто.
+        </p>
+        <a class="btn-google" id="loginBtn" href="https://secvote.web.app/index.html">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="google-icon"/>
+          Войти через Google
+        </a>
+        <p class="login-note" id="statusText">Регистрация не нужна — просто войди через Google</p>
+      </div>
+
+      <div class="features">
+        <div class="feature-card">
+          <div class="feature-icon">🗳️</div>
+          <h3>Создай голосование</h3>
+          <p>Задай вопрос, добавь варианты и поделись кодом с участниками</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔗</div>
+          <h3>Присоединись по коду</h3>
+          <p>Получи код от организатора и проголосуй за секунды</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Смотри результаты</h3>
+          <p>Только проценты — кто как голосовал не видит никто, даже создатель</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>© 2026 SV SecureVote — Анонимные голосования</p>
+    </footer>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithRedirect,
+      getRedirectResult,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAZL7CGXvVdDscq2W0IU8lqRWY6X53nlQM",
+      authDomain: "vs-sv-6fbda.firebaseapp.com",
+      projectId: "vs-sv-6fbda",
+      storageBucket: "vs-sv-6fbda.firebasestorage.app",
+      messagingSenderId: "958043340271",
+      appId: "1:958043340271:web:22a1347feb4f76b0ebca1a",
+      measurementId: "G-RVRJCMYVH4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    const hostedOrigins = ["https://secvote.web.app", "https://vs-sv-6fbda.web.app"];
+    const redirectFlagKey = "sv-google-redirect-pending";
+    const statusText = document.getElementById("statusText");
+    const btn = document.getElementById("loginBtn");
+    const urlParams = new URLSearchParams(window.location.search);
+    const isLocalPreview = ["127.0.0.1", "localhost"].includes(window.location.hostname) || window.location.protocol === "file:";
+    const currentHostedOrigin = hostedOrigins.includes(window.location.origin) ? window.location.origin : hostedOrigins[0];
+    const shouldAutoStartGoogle = urlParams.get("startGoogle") === "1";
+
+    let redirectHandled = false;
+    let redirectResolved = false;
+    let signInStarted = false;
+
+    provider.setCustomParameters({ prompt: "select_account" });
+
+    function openDashboard() {
+      if (redirectHandled) return;
+      redirectHandled = true;
+      sessionStorage.removeItem(redirectFlagKey);
+      window.location.href = "dashboard.html";
+    }
+
+    function showReadyState(message = "Регистрация не нужна — просто войди через Google") {
+      btn.disabled = false;
+      statusText.textContent = message;
+    }
+
+    async function startGoogleSignIn() {
+      if (signInStarted) return;
+      signInStarted = true;
+      btn.disabled = true;
+      statusText.textContent = "Переходим к входу через Google...";
+      sessionStorage.setItem(redirectFlagKey, "1");
+
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (error) {
+        console.error("Ошибка авторизации:", error);
+        signInStarted = false;
+        sessionStorage.removeItem(redirectFlagKey);
+        showReadyState(`❌ Ошибка: ${error.message}`);
+      }
+    }
+
+    if (isLocalPreview) {
+      showReadyState("Для входа откроем защищённую версию сайта...");
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        btn.disabled = true;
+        statusText.textContent = "Переходим на Firebase Hosting для входа...";
+        window.location.href = `${currentHostedOrigin}/index.html?startGoogle=1`;
+      });
+    } else {
+      btn.disabled = true;
+      statusText.textContent = sessionStorage.getItem(redirectFlagKey)
+        ? "Завершаем вход через Google..."
+        : "Проверяем вход...";
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          openDashboard();
+          return;
+        }
+
+        if (redirectHandled || !redirectResolved) return;
+        showReadyState();
+      });
+
+      getRedirectResult(auth)
+        .then((result) => {
+          redirectResolved = true;
+          if (result?.user || auth.currentUser) {
+            openDashboard();
+            return;
+          }
+
+          if (shouldAutoStartGoogle) {
+            startGoogleSignIn();
+            return;
+          }
+
+          sessionStorage.removeItem(redirectFlagKey);
+          showReadyState();
+        })
+        .catch((error) => {
+          console.error("Ошибка авторизации:", error);
+          redirectResolved = true;
+          sessionStorage.removeItem(redirectFlagKey);
+          showReadyState(`❌ Ошибка: ${error.message}`);
+        });
+
+      btn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        await startGoogleSignIn();
+      });
+    }
+  </script>
+
+</body>
+</html>

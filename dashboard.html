@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- FIX #1: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com;
+                 script-src 'self' 'unsafe-inline' https://*.googleapis.com https://www.gstatic.com;
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' data: https://*.googleusercontent.com https://www.gstatic.com;
+                 connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com;">
+  <title>SV — Дашборд</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+
+  <div class="page">
+
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">SV</div>
+        <span class="logo-text">SecureVote</span>
+      </div>
+      <div class="user-info">
+        <img id="userPhoto" src="" alt="Фото" class="user-photo" />
+        <span id="userName" class="user-name"></span>
+        <button class="btn-logout" id="logoutBtn">Выйти</button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+
+      <div class="dashboard-welcome">
+        <h1>Привет, <span id="welcomeName" class="highlight"></span>! 👋</h1>
+        <p>Что хочешь сделать?</p>
+      </div>
+
+      <!-- ДВА ВАРИАНТА -->
+      <div class="dashboard-cards">
+        <div class="dash-card" id="createCard">
+          <div class="dash-card-icon">🗳️</div>
+          <h2>Создать голосование</h2>
+          <p>Задай вопрос, добавь варианты ответов и пригласи участников по коду</p>
+          <button class="btn-primary" onclick="showCreate()">Создать</button>
+        </div>
+        <div class="dash-card" id="joinCard">
+          <div class="dash-card-icon">🔗</div>
+          <h2>Присоединиться</h2>
+          <p>Введи код который тебе прислали и проголосуй анонимно</p>
+          <button class="btn-secondary" onclick="showJoin()">Войти по коду</button>
+        </div>
+        <div class="dash-card" id="observeCard">
+          <div class="dash-card-icon">👁️</div>
+          <h2>Наблюдатель</h2>
+          <p>Следи за результатами голосования в реальном времени без права голоса</p>
+          <button class="btn-secondary" onclick="showObserve()">Смотреть</button>
+        </div>
+      </div>
+
+      <!-- ФОРМА СОЗДАНИЯ -->
+      <div class="form-box" id="createForm" style="display:none">
+        <h2>📝 Новое голосование</h2>
+        <div class="form-group">
+          <label>Вопрос</label>
+          <input type="text" id="pollQuestion" placeholder="Например: Какой день для встречи?" maxlength="300" />
+        </div>
+        <div class="form-group">
+          <label>Варианты ответов</label>
+          <div id="optionsList">
+            <input type="text" class="option-input" placeholder="Вариант 1" maxlength="200" />
+            <input type="text" class="option-input" placeholder="Вариант 2" maxlength="200" />
+          </div>
+          <button class="btn-add" onclick="addOption()">+ Добавить вариант</button>
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="hideAll()">Отмена</button>
+          <button class="btn-primary" onclick="createPoll()">Создать голосование</button>
+        </div>
+      </div>
+
+      <!-- ФОРМА ВХОДА ПО КОДУ -->
+      <div class="form-box" id="joinForm" style="display:none">
+        <h2>🔗 Войти по коду</h2>
+        <div class="form-group">
+          <label>Код голосования</label>
+          <input type="text" id="joinCode" placeholder="Например: ABC123" maxlength="6" style="text-transform:uppercase; letter-spacing:4px; font-size:24px; text-align:center;" />
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="hideAll()">Отмена</button>
+          <button class="btn-primary" onclick="joinPoll()">Войти</button>
+        </div>
+      </div>
+
+      <!-- ФОРМА НАБЛЮДАТЕЛЯ -->
+      <div class="form-box" id="observeForm" style="display:none">
+        <h2>👁️ Режим наблюдателя</h2>
+        <p style="color:var(--gray-muted); font-size:14px; margin-bottom:16px;">Ты сможешь видеть результаты в реальном времени, но не сможешь голосовать.</p>
+        <div class="form-group">
+          <label>Код голосования</label>
+          <input type="text" id="observeCode" placeholder="Например: ABC123" maxlength="6" style="text-transform:uppercase; letter-spacing:4px; font-size:24px; text-align:center;" />
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="hideAll()">Отмена</button>
+          <button class="btn-primary" onclick="observePoll()">Смотреть результаты</button>
+        </div>
+      </div>
+
+      <!-- МОИ ГОЛОСОВАНИЯ -->
+      <div class="my-polls" id="myPollsSection">
+        <h2>Мои голосования</h2>
+
+        <!-- ВКЛАДКИ -->
+        <div class="tabs">
+          <button class="tab active" id="tabActive" onclick="switchTab('active')">🟢 Активные</button>
+          <button class="tab" id="tabClosed" onclick="switchTab('closed')">🔒 Архив</button>
+        </div>
+
+        <div id="pollsList" class="polls-list">
+          <p class="empty-text">Загружаем...</p>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc, query, where, getDocs,
+      doc, deleteDoc, getDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAZL7CGXvVdDscq2W0IU8lqRWY6X53nlQM",
+      authDomain: "vs-sv-6fbda.firebaseapp.com",
+      projectId: "vs-sv-6fbda",
+      storageBucket: "vs-sv-6fbda.firebasestorage.app",
+      messagingSenderId: "958043340271",
+      appId: "1:958043340271:web:22a1347feb4f76b0ebca1a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+    let currentTab = "active";
+    let allPolls = [];
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        // FIX #2: textContent вместо прямой вставки — XSS невозможен
+        document.getElementById("userName").textContent = user.displayName || "Пользователь";
+        document.getElementById("welcomeName").textContent = (user.displayName || "").split(" ")[0];
+        if (user.photoURL) {
+          // Проверяем что URL валидный (только Google CDN)
+          if (user.photoURL.startsWith("https://")) {
+            document.getElementById("userPhoto").src = user.photoURL;
+          }
+        }
+        loadMyPolls();
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "index.html";
+    });
+
+    // FIX #5: улучшенная генерация кода — использует crypto.getRandomValues()
+    // вместо Math.random() (Math.random не является криптографически случайным)
+    function generateCode() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const randomBytes = new Uint8Array(6);
+      crypto.getRandomValues(randomBytes);
+      return Array.from(randomBytes)
+        .map(b => chars[b % chars.length])
+        .join("");
+    }
+
+    // FIX #6: санитизация — обрезаем и очищаем пробелы со всех текстовых полей
+    function sanitizeText(str, maxLen = 300) {
+      return String(str).trim().slice(0, maxLen);
+    }
+
+    window.createPoll = async function() {
+      const question = sanitizeText(document.getElementById("pollQuestion").value, 300);
+      const optionInputs = document.querySelectorAll(".option-input");
+      const options = Array.from(optionInputs)
+        .map(i => sanitizeText(i.value, 200))
+        .filter(v => v !== "");
+
+      if (!question) { alert("Введи вопрос!"); return; }
+      if (options.length < 2) { alert("Добавь минимум 2 варианта!"); return; }
+      if (options.length > 10) { alert("Максимум 10 вариантов!"); return; }
+
+      // Проверяем дубликаты среди вариантов
+      const uniqueOptions = new Set(options.map(o => o.toLowerCase()));
+      if (uniqueOptions.size !== options.length) {
+        alert("Варианты ответов не должны повторяться!");
+        return;
+      }
+
+      // Лимит: максимум 10 голосований на одного пользователя
+      const q = query(collection(db, "polls"), where("createdBy", "==", currentUser.uid));
+      const snap = await getDocs(q);
+      if (snap.size >= 10) {
+        alert("Ты достиг лимита в 10 голосований. Удали старые голосования чтобы создать новые.");
+        return;
+      }
+
+      const code = generateCode();
+      const results = {};
+      options.forEach((_, i) => results[i] = 0);
+
+      await addDoc(collection(db, "polls"), {
+        code, question, options, results,
+        createdBy: currentUser.uid,
+        createdAt: serverTimestamp(), // FIX: serverTimestamp вместо new Date()
+        closed: false
+      });
+
+      alert(`Голосование создано!\nКод: ${code}\nПоделись этим кодом с участниками!`);
+      hideAll();
+      loadMyPolls();
+    };
+
+    window.joinPoll = async function() {
+      // FIX #6: нормализуем и валидируем код
+      const raw = document.getElementById("joinCode").value.trim().toUpperCase();
+      const code = raw.replace(/[^A-Z0-9]/g, ""); // убираем всё лишнее
+      if (code.length !== 6) { alert("Введи 6-значный код!"); return; }
+      const q = query(collection(db, "polls"), where("code", "==", code));
+      const snap = await getDocs(q);
+      if (snap.empty) { alert("Голосование не найдено. Проверь код!"); return; }
+      window.location.href = `vote.html?id=${snap.docs[0].id}`;
+    };
+
+    window.observePoll = async function() {
+      const raw = document.getElementById("observeCode").value.trim().toUpperCase();
+      const code = raw.replace(/[^A-Z0-9]/g, "");
+      if (code.length !== 6) { alert("Введи 6-значный код!"); return; }
+      const q = query(collection(db, "polls"), where("code", "==", code));
+      const snap = await getDocs(q);
+      if (snap.empty) { alert("Голосование не найдено. Проверь код!"); return; }
+      window.location.href = `vote.html?id=${snap.docs[0].id}&mode=observe`;
+    };
+
+    async function loadMyPolls() {
+      const q = query(collection(db, "polls"), where("createdBy", "==", currentUser.uid));
+      const snap = await getDocs(q);
+      allPolls = [];
+      snap.forEach(docSnap => allPolls.push({ id: docSnap.id, ...docSnap.data() }));
+      renderPolls();
+    }
+
+    function renderPolls() {
+      const list = document.getElementById("pollsList");
+      const filtered = allPolls.filter(p => currentTab === "active" ? !p.closed : p.closed);
+
+      if (filtered.length === 0) {
+        list.textContent = ""; // очищаем
+        const empty = document.createElement("p");
+        empty.className = "empty-text";
+        empty.textContent = currentTab === "active" ? "Нет активных голосований" : "Архив пуст";
+        list.appendChild(empty);
+        return;
+      }
+
+      list.innerHTML = "";
+      filtered.forEach(poll => {
+        const total = Object.values(poll.results).reduce((a, b) => a + b, 0);
+        const div = document.createElement("div");
+        div.className = "poll-item";
+
+        // FIX #2: строим DOM вручную — никакого innerHTML с данными из БД
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "poll-item-info";
+
+        const codeSpan = document.createElement("span");
+        codeSpan.className = "poll-code";
+        codeSpan.textContent = poll.code;
+
+        const questionSpan = document.createElement("span");
+        questionSpan.className = "poll-question";
+        questionSpan.textContent = poll.question; // textContent — безопасно
+
+        const votesSpan = document.createElement("span");
+        votesSpan.className = "poll-votes";
+        votesSpan.textContent = total + " голосов";
+
+        const statusSpan = document.createElement("span");
+        statusSpan.className = "poll-status " + (poll.closed ? "closed" : "active");
+        statusSpan.textContent = poll.closed ? "Закрыто" : "Активно";
+
+        infoDiv.appendChild(codeSpan);
+        infoDiv.appendChild(questionSpan);
+        infoDiv.appendChild(votesSpan);
+        infoDiv.appendChild(statusSpan);
+
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "poll-item-actions";
+
+        const viewBtn = document.createElement("button");
+        viewBtn.className = "btn-view";
+        viewBtn.textContent = "Смотреть";
+        viewBtn.onclick = () => window.location.href = `vote.html?id=${poll.id}`;
+
+        const csvBtn = document.createElement("button");
+        csvBtn.className = "btn-csv";
+        csvBtn.textContent = "📥 CSV";
+        csvBtn.onclick = () => exportCSV(poll.id);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn-delete";
+        delBtn.textContent = "🗑️";
+        delBtn.onclick = () => deletePoll(poll.id, poll.question);
+
+        actionsDiv.appendChild(viewBtn);
+        actionsDiv.appendChild(csvBtn);
+        actionsDiv.appendChild(delBtn);
+
+        div.appendChild(infoDiv);
+        div.appendChild(actionsDiv);
+        list.appendChild(div);
+      });
+    }
+
+    // FIX #4: deletePoll теперь проверяет владельца через свежий getDoc перед удалением
+    window.deletePoll = async function(pollId, question) {
+      if (!confirm(`Удалить голосование?\n"${question}"\n\nЭто действие нельзя отменить!`)) return;
+
+      try {
+        // Получаем свежий документ и проверяем владельца
+        const pollSnap = await getDoc(doc(db, "polls", pollId));
+        if (!pollSnap.exists()) {
+          alert("Голосование уже удалено.");
+          allPolls = allPolls.filter(p => p.id !== pollId);
+          renderPolls();
+          return;
+        }
+        if (pollSnap.data().createdBy !== currentUser.uid) {
+          alert("Ты не являешься создателем этого голосования.");
+          return;
+        }
+
+        await deleteDoc(doc(db, "polls", pollId));
+        allPolls = allPolls.filter(p => p.id !== pollId);
+        renderPolls();
+      } catch (e) {
+        console.error("deletePoll error:", e);
+        alert("Ошибка удаления.");
+      }
+    };
+
+    window.switchTab = function(tab) {
+      currentTab = tab;
+      document.getElementById("tabActive").classList.toggle("active", tab === "active");
+      document.getElementById("tabClosed").classList.toggle("active", tab === "closed");
+      renderPolls();
+    };
+
+    // FIX #2: экранируем кавычки в CSV значениях
+    window.exportCSV = function(pollId) {
+      const poll = allPolls.find(p => p.id === pollId);
+      if (!poll) return;
+
+      const total = Object.values(poll.results).reduce((a, b) => a + b, 0);
+      let csv = "Вариант,Голоса,Процент\n";
+      poll.options.forEach((option, i) => {
+        const votes = poll.results[i] || 0;
+        const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+        const safeOption = option.replace(/"/g, '""');
+        csv += `"${safeOption}",${votes},${percent}%\n`;
+      });
+      csv += `\nВсего голосов,${total},100%\n`;
+      const safeQuestion = poll.question.replace(/"/g, '""');
+      csv += `Вопрос,"${safeQuestion}"\n`;
+      csv += `Код,${poll.code}\n`;
+      csv += `Статус,${poll.closed ? "Закрыто" : "Активно"}\n`;
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sv_results_${poll.code}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    window.showCreate = function() {
+      document.getElementById("createForm").style.display = "block";
+      document.getElementById("joinForm").style.display = "none";
+      document.getElementById("observeForm").style.display = "none";
+      document.getElementById("createForm").scrollIntoView({ behavior: "smooth" });
+    };
+
+    window.showJoin = function() {
+      document.getElementById("joinForm").style.display = "block";
+      document.getElementById("createForm").style.display = "none";
+      document.getElementById("observeForm").style.display = "none";
+      document.getElementById("joinForm").scrollIntoView({ behavior: "smooth" });
+    };
+
+    window.showObserve = function() {
+      document.getElementById("observeForm").style.display = "block";
+      document.getElementById("createForm").style.display = "none";
+      document.getElementById("joinForm").style.display = "none";
+      document.getElementById("observeForm").scrollIntoView({ behavior: "smooth" });
+    };
+
+    window.hideAll = function() {
+      document.getElementById("createForm").style.display = "none";
+      document.getElementById("joinForm").style.display = "none";
+      document.getElementById("observeForm").style.display = "none";
+    };
+
+    window.addOption = function() {
+      const list = document.getElementById("optionsList");
+      const count = list.querySelectorAll(".option-input").length + 1;
+      if (count > 10) { alert("Максимум 10 вариантов!"); return; }
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "option-input";
+      input.placeholder = `Вариант ${count}`;
+      input.maxLength = 200; // FIX #6: ограничение длины на уровне input
+      list.appendChild(input);
+    };
+  </script>
+
+</body>
+</html>

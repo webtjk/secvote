@@ -1,0 +1,214 @@
+/* === RESET & BASE === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --blue-dark:    #0a1628;
+  --blue-main:    #1a3a6e;
+  --blue-bright:  #2562e6;
+  --blue-light:   #3b82f6;
+  --blue-glow:    #60a5fa;
+  --white:        #ffffff;
+  --gray-light:   #e2e8f0;
+  --gray-muted:   #94a3b8;
+  --card-bg:      rgba(255,255,255,0.05);
+  --card-border:  rgba(96,165,250,0.2);
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--blue-dark);
+  color: var(--white);
+  min-height: 100vh;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at top, #1a3a6e 0%, #0a1628 60%);
+}
+
+/* === HEADER === */
+.header {
+  padding: 20px 40px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--card-border);
+  backdrop-filter: blur(10px);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--blue-bright), var(--blue-glow));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(37,99,235,0.5);
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 0.5px;
+}
+
+/* === HERO === */
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 60px;
+}
+
+.hero-content {
+  text-align: center;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(37,99,235,0.2);
+  border: 1px solid rgba(96,165,250,0.4);
+  color: var(--blue-glow);
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.hero-title {
+  font-size: clamp(36px, 6vw, 58px);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--white);
+}
+
+.highlight {
+  background: linear-gradient(135deg, var(--blue-light), var(--blue-glow));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 17px;
+  color: var(--gray-muted);
+  line-height: 1.7;
+}
+
+/* === GOOGLE BUTTON === */
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--white);
+  color: #1e293b;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  text-decoration: none;
+}
+
+.btn-google:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(37,99,235,0.4);
+}
+
+.btn-google:active {
+  transform: translateY(0);
+}
+
+.google-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.login-note {
+  font-size: 13px;
+  color: var(--gray-muted);
+}
+
+/* === FEATURE CARDS === */
+.features {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 900px;
+}
+
+.feature-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  width: 260px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  border-color: var(--blue-light);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(37,99,235,0.2);
+}
+
+.feature-icon {
+  font-size: 36px;
+  margin-bottom: 14px;
+}
+
+.feature-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--white);
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: var(--gray-muted);
+  line-height: 1.6;
+}
+
+/* === FOOTER === */
+.footer {
+  text-align: center;
+  padding: 20px;
+  color: var(--gray-muted);
+  font-size: 13px;
+  border-top: 1px solid var(--card-border);
+}
