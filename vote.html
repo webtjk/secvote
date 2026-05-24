@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <!-- FIX #1: Content Security Policy — запрещает inline-скрипты со сторонних доменов -->
+  <!-- FIX нумбер 1: Content Security Policy — запрещает inline-скрипты со сторонних доменов -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com;
                  script-src 'self' 'unsafe-inline' https://*.googleapis.com https://www.gstatic.com;
@@ -114,7 +114,7 @@
     let selectedOption = null;
     let isCreator = false;
 
-    // FIX #2: экранирование HTML — защита от XSS при вставке данных из БД
+    // FIX нумбер 2 экранирование HTML — защита от XSS при вставке данных из БД
     function escapeHTML(str) {
       const div = document.createElement("div");
       div.appendChild(document.createTextNode(String(str)));
@@ -200,7 +200,7 @@
         radio.id = `radio_${i}`;
 
         const label = document.createElement("span");
-        label.textContent = option; // textContent вместо innerHTML — XSS невозможен
+        label.textContent = option; 
 
         div.appendChild(radio);
         div.appendChild(label);
@@ -217,10 +217,7 @@
       });
     };
 
-    // FIX #3: Атомарная транзакция — полностью устраняет race condition
-    // Старый код: читал results из памяти → инкрементировал → писал.
-    // Если два пользователя голосовали одновременно — один голос терялся.
-    // Новый код: runTransaction читает актуальные данные из БД ВНУТРИ транзакции.
+  
     window.submitVote = async function() {
       if (selectedOption === null) { alert("Выбери вариант!"); return; }
 
@@ -234,24 +231,24 @@
         const pollDocRef = doc(db, "polls", pollId);
 
         await runTransaction(db, async (transaction) => {
-          // 1. Читаем голосование и проверяем статус ВНУТРИ транзакции
+          //Читаем голосование и проверяем статус ВНУТРИ транзакции
           const pollSnap = await transaction.get(pollDocRef);
           if (!pollSnap.exists()) throw new Error("poll_not_found");
           const data = pollSnap.data();
           if (data.closed) throw new Error("poll_closed");
 
-          // 2. Проверяем, не голосовал ли уже этот пользователь
+          //Проверяем, не голосовал ли уже этот пользователь
           const voteSnap = await transaction.get(voteDocRef);
           if (voteSnap.exists()) throw new Error("already_voted");
 
-          // 3. Записываем голос
+          //Записываем голос
           transaction.set(voteDocRef, {
             optionIndex: selectedOption,
             votedAt: serverTimestamp()
             // УБРАЛИ uid и hashedUID из документа — минимум данных
           });
 
-          // 4. Атомарно инкрементируем счётчик через increment() — без перезаписи всего объекта
+          
           const updateData = {};
           updateData[`results.${selectedOption}`] = increment(1);
           transaction.update(pollDocRef, updateData);
