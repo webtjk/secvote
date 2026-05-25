@@ -280,7 +280,7 @@
         const div = document.createElement("div");
         div.className = "poll-item";
 
-        // FIX #2: строим DOM вручную — никакого innerHTML с данными из БД
+        //строим DOM вручную — никакого innerHTML с данными из БД
         const infoDiv = document.createElement("div");
         infoDiv.className = "poll-item-info";
 
@@ -333,7 +333,7 @@
       });
     }
 
-    // FIX #4: deletePoll теперь проверяет владельца через свежий getDoc перед удалением
+    //deletePoll теперь проверяет владельца через свежий getDoc перед удалением
     window.deletePoll = async function(pollId, question) {
       if (!confirm(`Удалить голосование?\n"${question}"\n\nЭто действие нельзя отменить!`)) return;
 
@@ -367,7 +367,7 @@
       renderPolls();
     };
 
-    // FIX #2: экранируем кавычки в CSV значениях
+    // экранируем кавычки в CSV значениях
     window.exportCSV = function(pollId) {
       const poll = allPolls.find(p => p.id === pollId);
       if (!poll) return;
