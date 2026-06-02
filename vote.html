@@ -88,8 +88,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, doc, getDoc, updateDoc, setDoc, onSnapshot,
-      runTransaction, serverTimestamp, increment
+      getFirestore, collection, doc, getDoc, getDocs, updateDoc, setDoc, onSnapshot,
+      runTransaction, serverTimestamp, increment, query, where
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -374,14 +374,21 @@
     };
 
     window.shareCode = function() {
+      const shareText = `Присоединяйся к голосованию на SecureVote!\nСайт: https://secvote.web.app\nКод для входа: ${pollData.code}`;
+
+      if (navigator.share) {
+        navigator.share({ title: "SecureVote", text: shareText }).catch(() => {});
+        return;
+      }
+
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(pollData.code).then(() => {
-          alert(`Код скопирован: ${pollData.code}`);
+        navigator.clipboard.writeText(shareText).then(() => {
+          alert("Скопировано!");
         }).catch(() => {
-          prompt("Скопируй код вручную:", pollData.code);
+          prompt("Скопируй:", shareText);
         });
       } else {
-        prompt("Скопируй код вручную:", pollData.code);
+        prompt("Скопируй:", shareText);
       }
     };
 
