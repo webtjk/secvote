@@ -63,8 +63,7 @@
     import {
       getAuth,
       GoogleAuthProvider,
-      signInWithRedirect,
-      getRedirectResult,
+      signInWithPopup,
       onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
@@ -81,102 +80,35 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
-    const hostedOrigins = ["https://secvote.web.app", "https://vs-sv-6fbda.web.app"];
-    const redirectFlagKey = "sv-google-redirect-pending";
     const statusText = document.getElementById("statusText");
     const btn = document.getElementById("loginBtn");
-    const urlParams = new URLSearchParams(window.location.search);
-    const isLocalPreview = ["127.0.0.1", "localhost"].includes(window.location.hostname) || window.location.protocol === "file:";
-    const currentHostedOrigin = hostedOrigins.includes(window.location.origin) ? window.location.origin : hostedOrigins[0];
-    const shouldAutoStartGoogle = urlParams.get("startGoogle") === "1";
-
-    let redirectHandled = false;
-    let redirectResolved = false;
-    let signInStarted = false;
 
     provider.setCustomParameters({ prompt: "select_account" });
 
-    function openDashboard() {
-      if (redirectHandled) return;
-      redirectHandled = true;
-      sessionStorage.removeItem(redirectFlagKey);
-      window.location.href = "dashboard.html";
-    }
+    // Если уже залогинен — сразу на дашборд
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.location.href = "dashboard.html";
+      } else {
+        btn.disabled = false;
+        statusText.textContent = "Регистрация не нужна — просто войди через Google";
+      }
+    });
 
-    function showReadyState(message = "Регистрация не нужна — просто войди через Google") {
-      btn.disabled = false;
-      statusText.textContent = message;
-    }
-
-    async function startGoogleSignIn() {
-      if (signInStarted) return;
-      signInStarted = true;
+    btn.addEventListener("click", async (event) => {
+      event.preventDefault();
       btn.disabled = true;
-      statusText.textContent = "Переходим к входу через Google...";
-      sessionStorage.setItem(redirectFlagKey, "1");
+      statusText.textContent = "Открываем вход через Google...";
 
       try {
-        await signInWithRedirect(auth, provider);
+        await signInWithPopup(auth, provider);
+        window.location.href = "dashboard.html";
       } catch (error) {
         console.error("Ошибка авторизации:", error);
-        signInStarted = false;
-        sessionStorage.removeItem(redirectFlagKey);
-        showReadyState(`❌ Ошибка: ${error.message}`);
+        btn.disabled = false;
+        statusText.textContent = `❌ Ошибка: ${error.message}`;
       }
-    }
-
-    if (isLocalPreview) {
-      showReadyState("Для входа откроем защищённую версию сайта...");
-      btn.addEventListener("click", (event) => {
-        event.preventDefault();
-        btn.disabled = true;
-        statusText.textContent = "Переходим на Firebase Hosting для входа...";
-        window.location.href = `${currentHostedOrigin}/index.html?startGoogle=1`;
-      });
-    } else {
-      btn.disabled = true;
-      statusText.textContent = sessionStorage.getItem(redirectFlagKey)
-        ? "Завершаем вход через Google..."
-        : "Проверяем вход...";
-
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          openDashboard();
-          return;
-        }
-
-        if (redirectHandled || !redirectResolved) return;
-        showReadyState();
-      });
-
-      getRedirectResult(auth)
-        .then((result) => {
-          redirectResolved = true;
-          if (result?.user || auth.currentUser) {
-            openDashboard();
-            return;
-          }
-
-          if (shouldAutoStartGoogle) {
-            startGoogleSignIn();
-            return;
-          }
-
-          sessionStorage.removeItem(redirectFlagKey);
-          showReadyState();
-        })
-        .catch((error) => {
-          console.error("Ошибка авторизации:", error);
-          redirectResolved = true;
-          sessionStorage.removeItem(redirectFlagKey);
-          showReadyState(`❌ Ошибка: ${error.message}`);
-        });
-
-      btn.addEventListener("click", async (event) => {
-        event.preventDefault();
-        await startGoogleSignIn();
-      });
-    }
+    });
   </script>
 
 </body>
