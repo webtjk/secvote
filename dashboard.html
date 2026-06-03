@@ -3,13 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    .vote-mode-toggle { display: flex; gap: 12px; flex-wrap: wrap; }
+    /* Стили для загрузки фото к вариантам */
+    .option-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .option-row .option-input { flex: 1; margin-bottom: 0; }
+    .btn-photo { width: 40px; height: 40px; border-radius: 10px; border: 2px dashed var(--border, #2a2a3a); background: transparent; cursor: pointer; font-size: 18px; flex-shrink: 0; transition: all 0.2s; display: flex; align-items: center; justify-content: center; color: var(--gray-muted, #888); }
+    .btn-photo:hover { border-color: var(--accent, #6c63ff); color: var(--accent, #6c63ff); }
+    .btn-photo.has-photo { border-style: solid; border-color: var(--accent, #6c63ff); background: rgba(108,99,255,0.1); color: var(--accent, #6c63ff); }
+    .option-preview { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; display: none; flex-shrink: 0; }
+    .option-preview.visible { display: block; }
+    .btn-remove-photo { width: 20px; height: 20px; border-radius: 50%; border: none; background: #ff4444; color: white; cursor: pointer; font-size: 11px; flex-shrink: 0; display: none; align-items: center; justify-content: center; }
+    .btn-remove-photo.visible { display: flex; }
+    .mode-option { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border: 2px solid var(--border, #2a2a3a); border-radius: 12px; cursor: pointer; flex: 1; min-width: 140px; transition: border-color 0.2s; }
+    .mode-option:has(input:checked) { border-color: var(--accent, #6c63ff); background: rgba(108,99,255,0.08); }
+    .mode-option input { display: none; }
+    .mode-option span { font-weight: 600; font-size: 15px; }
+    .mode-option small { color: var(--gray-muted, #888); font-size: 12px; }
+  </style>
   <!-- FIX #1: Content Security Policy -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com;
                  script-src 'self' 'unsafe-inline' https://*.googleapis.com https://www.gstatic.com;
                  style-src 'self' 'unsafe-inline';
-                 img-src 'self' data: https://*.googleusercontent.com https://www.gstatic.com;
-                 connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com;">
+                 img-src 'self' data: blob: https://*.googleusercontent.com https://www.gstatic.com https://firebasestorage.googleapis.com;
+                 connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://firebasestorage.googleapis.com;">
   <title>SV — Дашборд</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="dashboard.css" />
@@ -69,10 +87,23 @@
         <div class="form-group">
           <label>Варианты ответов</label>
           <div id="optionsList">
-            <input type="text" class="option-input" placeholder="Вариант 1" maxlength="200" />
-            <input type="text" class="option-input" placeholder="Вариант 2" maxlength="200" />
           </div>
           <button class="btn-add" onclick="addOption()">+ Добавить вариант</button>
+        </div>
+        <div class="form-group">
+          <label>Режим голосования</label>
+          <div class="vote-mode-toggle">
+            <label class="mode-option">
+              <input type="radio" name="voteMode" value="single" checked />
+              <span>☝️ Один голос</span>
+              <small>Каждый выбирает только один вариант</small>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="voteMode" value="multiple" />
+              <span>✌️ Несколько голосов</span>
+              <small>Можно выбрать сразу несколько вариантов</small>
+            </label>
+          </div>
         </div>
         <div class="form-actions">
           <button class="btn-cancel" onclick="hideAll()">Отмена</button>
@@ -115,6 +146,7 @@
         <div class="tabs">
           <button class="tab active" id="tabActive" onclick="switchTab('active')">🟢 Активные</button>
           <button class="tab" id="tabClosed" onclick="switchTab('closed')">🔒 Архив</button>
+          <button class="tab" id="tabVoted" onclick="switchTab('voted')">✅ Участвовал</button>
         </div>
 
         <div id="pollsList" class="polls-list">
@@ -133,6 +165,9 @@
       getFirestore, collection, addDoc, query, where, getDocs,
       doc, deleteDoc, getDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getStorage, ref, uploadBytes, getDownloadURL, deleteObject
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZL7CGXvVdDscq2W0IU8lqRWY6X53nlQM",
@@ -146,10 +181,12 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const storage = getStorage(app);
 
     let currentUser = null;
     let currentTab = "active";
     let allPolls = [];
+    let votedPolls = []; // голосования где участвовал (не создатель)
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -192,23 +229,21 @@
 
     window.createPoll = async function() {
       const question = sanitizeText(document.getElementById("pollQuestion").value, 300);
-      const optionInputs = document.querySelectorAll(".option-input");
-      const options = Array.from(optionInputs)
-        .map(i => sanitizeText(i.value, 200))
+      const rows = document.querySelectorAll(".option-row");
+      const options = Array.from(rows)
+        .map(row => sanitizeText(row.querySelector(".option-input").value, 200))
         .filter(v => v !== "");
 
       if (!question) { alert("Введи вопрос!"); return; }
       if (options.length < 2) { alert("Добавь минимум 2 варианта!"); return; }
       if (options.length > 10) { alert("Максимум 10 вариантов!"); return; }
 
-      // Проверяем дубликаты среди вариантов
       const uniqueOptions = new Set(options.map(o => o.toLowerCase()));
       if (uniqueOptions.size !== options.length) {
         alert("Варианты ответов не должны повторяться!");
         return;
       }
 
-      // Лимит: максимум 10 голосований на одного пользователя
       const q = query(collection(db, "polls"), where("createdBy", "==", currentUser.uid));
       const snap = await getDocs(q);
       if (snap.size >= 10) {
@@ -216,21 +251,71 @@
         return;
       }
 
-      const code = generateCode();
-      const results = {};
-      options.forEach((_, i) => results[i] = 0);
+      // Показываем прогресс
+      const createBtn = document.querySelector("#createForm .btn-primary");
+      createBtn.disabled = true;
+      createBtn.textContent = "Создаём...";
 
-      await addDoc(collection(db, "polls"), {
-        code, question, options, results,
-        createdBy: currentUser.uid,
-        createdAt: serverTimestamp(), // FIX: serverTimestamp вместо new Date()
-        closed: false
-      });
+      try {
+        const voteMode = document.querySelector('input[name="voteMode"]:checked').value;
+        const code = generateCode();
+        const results = {};
+        options.forEach((_, i) => results[i] = 0);
 
-      alert(`Голосование создано!\nКод: ${code}\nПоделись этим кодом с участниками!`);
-      hideAll();
-      loadMyPolls();
+        // Загружаем фото в Storage
+        const photoURLs = {};
+        const rowsAll = document.querySelectorAll(".option-row");
+        for (let i = 0; i < rowsAll.length; i++) {
+          const optionText = sanitizeText(rowsAll[i].querySelector(".option-input").value, 200);
+          if (!optionText) continue; // пропускаем пустые
+          const optionIndex = options.indexOf(optionText);
+          if (optionPhotos[i]) {
+            createBtn.textContent = `Загружаем фото ${i + 1}...`;
+            const compressed = await compressImage(optionPhotos[i], 800);
+            const storageRef = ref(storage, `poll_images/${code}_${optionIndex}_${Date.now()}`);
+            await uploadBytes(storageRef, compressed);
+            photoURLs[optionIndex] = await getDownloadURL(storageRef);
+          }
+        }
+
+        await addDoc(collection(db, "polls"), {
+          code, question, options, results,
+          voteMode,
+          photoURLs: Object.keys(photoURLs).length > 0 ? photoURLs : null,
+          createdBy: currentUser.uid,
+          createdAt: serverTimestamp(),
+          closed: false
+        });
+
+        alert(`Голосование создано!\nКод: ${code}\nПоделись этим кодом с участниками!`);
+        hideAll();
+        loadMyPolls();
+      } catch (e) {
+        console.error("createPoll error:", e);
+        alert("Ошибка при создании. Попробуй снова.");
+      } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = "Создать голосование";
+      }
     };
+
+    // Сжимаем фото через Canvas до maxWidth px
+    async function compressImage(file, maxWidth) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(resolve, "image/jpeg", 0.82);
+        };
+        img.src = url;
+      });
+    }
 
     window.joinPoll = async function() {
       // FIX #6: нормализуем и валидируем код
@@ -254,19 +339,137 @@
     };
 
     async function loadMyPolls() {
+      // Мои голосования (создатель)
       const q = query(collection(db, "polls"), where("createdBy", "==", currentUser.uid));
       const snap = await getDocs(q);
       allPolls = [];
       snap.forEach(docSnap => allPolls.push({ id: docSnap.id, ...docSnap.data() }));
+
+      // Голосования где участвовал (votes с моим хешем)
+      await loadVotedPolls();
+
       renderPolls();
+    }
+
+    async function hashUID(uid) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(uid + "sv_salt_2026");
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+    }
+
+    async function loadVotedPolls() {
+      try {
+        const hashedUID = await hashUID(currentUser.uid);
+        // Ищем все votes где ID начинается на pollId_hashedUID
+        // Так как мы не знаем pollId — ищем все votes пользователя через префикс хеша
+        const votesSnap = await getDocs(collection(db, "votes"));
+        const myPollIds = [];
+        votesSnap.forEach(d => {
+          if (d.id.endsWith("_" + hashedUID)) {
+            const pollId = d.id.replace("_" + hashedUID, "");
+            myPollIds.push(pollId);
+          }
+        });
+
+        // Для каждого pollId загружаем голосование (если не создатель)
+        votedPolls = [];
+        const myPollIdSet = new Set(allPolls.map(p => p.id));
+        for (const pollId of myPollIds) {
+          if (myPollIdSet.has(pollId)) continue; // пропускаем свои
+          try {
+            const pollSnap = await getDoc(doc(db, "polls", pollId));
+            if (pollSnap.exists()) {
+              votedPolls.push({ id: pollSnap.id, ...pollSnap.data() });
+            }
+          } catch (e) { /* голосование удалено */ }
+        }
+      } catch (e) {
+        console.error("loadVotedPolls error:", e);
+      }
+    }
+
+    function createPollItem(poll, isOwner) {
+      const total = Object.values(poll.results).reduce((a, b) => a + b, 0);
+      const div = document.createElement("div");
+      div.className = "poll-item";
+
+      const infoDiv = document.createElement("div");
+      infoDiv.className = "poll-item-info";
+
+      const codeSpan = document.createElement("span");
+      codeSpan.className = "poll-code";
+      codeSpan.textContent = poll.code;
+
+      const questionSpan = document.createElement("span");
+      questionSpan.className = "poll-question";
+      questionSpan.textContent = poll.question;
+
+      const votesSpan = document.createElement("span");
+      votesSpan.className = "poll-votes";
+      votesSpan.textContent = total + " голосов";
+
+      const statusSpan = document.createElement("span");
+      statusSpan.className = "poll-status " + (poll.closed ? "closed" : "active");
+      statusSpan.textContent = poll.closed ? "Закрыто" : "Активно";
+
+      infoDiv.appendChild(codeSpan);
+      infoDiv.appendChild(questionSpan);
+      infoDiv.appendChild(votesSpan);
+      infoDiv.appendChild(statusSpan);
+
+      const actionsDiv = document.createElement("div");
+      actionsDiv.className = "poll-item-actions";
+
+      const viewBtn = document.createElement("button");
+      viewBtn.className = "btn-view";
+      viewBtn.textContent = "Смотреть";
+      viewBtn.onclick = () => window.location.href = `vote.html?id=${poll.id}`;
+      actionsDiv.appendChild(viewBtn);
+
+      if (isOwner) {
+        const csvBtn = document.createElement("button");
+        csvBtn.className = "btn-csv";
+        csvBtn.textContent = "📥 CSV";
+        csvBtn.onclick = () => exportCSV(poll.id);
+        actionsDiv.appendChild(csvBtn);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn-delete";
+        delBtn.textContent = "🗑️";
+        delBtn.onclick = () => deletePoll(poll.id, poll.question);
+        actionsDiv.appendChild(delBtn);
+      }
+
+      div.appendChild(infoDiv);
+      div.appendChild(actionsDiv);
+      return div;
     }
 
     function renderPolls() {
       const list = document.getElementById("pollsList");
-      const filtered = allPolls.filter(p => currentTab === "active" ? !p.closed : p.closed);
+      list.innerHTML = "";
 
+      // Обновляем видимость вкладки voted
+      document.getElementById("tabActive").classList.toggle("active", currentTab === "active");
+      document.getElementById("tabClosed").classList.toggle("active", currentTab === "closed");
+      document.getElementById("tabVoted").classList.toggle("active", currentTab === "voted");
+
+      if (currentTab === "voted") {
+        if (votedPolls.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "empty-text";
+          empty.textContent = "Ты ещё не участвовал ни в одном голосовании";
+          list.appendChild(empty);
+        } else {
+          votedPolls.forEach(poll => list.appendChild(createPollItem(poll, false)));
+        }
+        return;
+      }
+
+      const filtered = allPolls.filter(p => currentTab === "active" ? !p.closed : p.closed);
       if (filtered.length === 0) {
-        list.textContent = ""; // очищаем
         const empty = document.createElement("p");
         empty.className = "empty-text";
         empty.textContent = currentTab === "active" ? "Нет активных голосований" : "Архив пуст";
@@ -274,63 +477,7 @@
         return;
       }
 
-      list.innerHTML = "";
-      filtered.forEach(poll => {
-        const total = Object.values(poll.results).reduce((a, b) => a + b, 0);
-        const div = document.createElement("div");
-        div.className = "poll-item";
-
-        // FIX #2: строим DOM вручную — никакого innerHTML с данными из БД
-        const infoDiv = document.createElement("div");
-        infoDiv.className = "poll-item-info";
-
-        const codeSpan = document.createElement("span");
-        codeSpan.className = "poll-code";
-        codeSpan.textContent = poll.code;
-
-        const questionSpan = document.createElement("span");
-        questionSpan.className = "poll-question";
-        questionSpan.textContent = poll.question; // textContent — безопасно
-
-        const votesSpan = document.createElement("span");
-        votesSpan.className = "poll-votes";
-        votesSpan.textContent = total + " голосов";
-
-        const statusSpan = document.createElement("span");
-        statusSpan.className = "poll-status " + (poll.closed ? "closed" : "active");
-        statusSpan.textContent = poll.closed ? "Закрыто" : "Активно";
-
-        infoDiv.appendChild(codeSpan);
-        infoDiv.appendChild(questionSpan);
-        infoDiv.appendChild(votesSpan);
-        infoDiv.appendChild(statusSpan);
-
-        const actionsDiv = document.createElement("div");
-        actionsDiv.className = "poll-item-actions";
-
-        const viewBtn = document.createElement("button");
-        viewBtn.className = "btn-view";
-        viewBtn.textContent = "Смотреть";
-        viewBtn.onclick = () => window.location.href = `vote.html?id=${poll.id}`;
-
-        const csvBtn = document.createElement("button");
-        csvBtn.className = "btn-csv";
-        csvBtn.textContent = "📥 CSV";
-        csvBtn.onclick = () => exportCSV(poll.id);
-
-        const delBtn = document.createElement("button");
-        delBtn.className = "btn-delete";
-        delBtn.textContent = "🗑️";
-        delBtn.onclick = () => deletePoll(poll.id, poll.question);
-
-        actionsDiv.appendChild(viewBtn);
-        actionsDiv.appendChild(csvBtn);
-        actionsDiv.appendChild(delBtn);
-
-        div.appendChild(infoDiv);
-        div.appendChild(actionsDiv);
-        list.appendChild(div);
-      });
+      filtered.forEach(poll => list.appendChild(createPollItem(poll, true)));
     }
 
     // FIX #4: deletePoll теперь проверяет владельца через свежий getDoc перед удалением
@@ -362,8 +509,6 @@
 
     window.switchTab = function(tab) {
       currentTab = tab;
-      document.getElementById("tabActive").classList.toggle("active", tab === "active");
-      document.getElementById("tabClosed").classList.toggle("active", tab === "closed");
       renderPolls();
     };
 
@@ -395,13 +540,17 @@
       URL.revokeObjectURL(url);
     };
 
-    window.showCreate = function() {
-      document.getElementById("createForm").style.display = "block";
+
+
+
+
+    window.hideAll = function() {
+      document.getElementById("createForm").style.display = "none";
       document.getElementById("joinForm").style.display = "none";
       document.getElementById("observeForm").style.display = "none";
-      document.getElementById("createForm").scrollIntoView({ behavior: "smooth" });
     };
 
+    // Переопределяем showJoin и showObserve чтобы не конфликтовали с showCreate
     window.showJoin = function() {
       document.getElementById("joinForm").style.display = "block";
       document.getElementById("createForm").style.display = "none";
@@ -416,22 +565,105 @@
       document.getElementById("observeForm").scrollIntoView({ behavior: "smooth" });
     };
 
-    window.hideAll = function() {
-      document.getElementById("createForm").style.display = "none";
+    // Хранилище выбранных файлов по индексу строки
+    const optionPhotos = {};
+
+    function createOptionRow(index) {
+      const list = document.getElementById("optionsList");
+      const row = document.createElement("div");
+      row.className = "option-row";
+      row.dataset.index = index;
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "option-input";
+      input.placeholder = `Вариант ${index + 1}`;
+      input.maxLength = 200;
+
+      // Скрытый file input
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/*";
+      fileInput.style.display = "none";
+
+      // Кнопка добавления фото
+      const photoBtn = document.createElement("button");
+      photoBtn.type = "button";
+      photoBtn.className = "btn-photo";
+      photoBtn.title = "Добавить фото";
+      photoBtn.textContent = "📷";
+
+      // Превью фото
+      const preview = document.createElement("img");
+      preview.className = "option-preview";
+
+      // Кнопка удаления фото
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn-remove-photo";
+      removeBtn.title = "Удалить фото";
+      removeBtn.textContent = "✕";
+
+      photoBtn.addEventListener("click", () => fileInput.click());
+
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { alert("Фото слишком большое. Максимум 5MB."); return; }
+
+        // Показываем превью
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          preview.src = e.target.result;
+          preview.classList.add("visible");
+          removeBtn.classList.add("visible");
+          photoBtn.classList.add("has-photo");
+          photoBtn.textContent = "✓";
+        };
+        reader.readAsDataURL(file);
+        optionPhotos[index] = file;
+      });
+
+      removeBtn.addEventListener("click", () => {
+        delete optionPhotos[index];
+        fileInput.value = "";
+        preview.src = "";
+        preview.classList.remove("visible");
+        removeBtn.classList.remove("visible");
+        photoBtn.classList.remove("has-photo");
+        photoBtn.textContent = "📷";
+      });
+
+      row.appendChild(input);
+      row.appendChild(fileInput);
+      row.appendChild(photoBtn);
+      row.appendChild(preview);
+      row.appendChild(removeBtn);
+      list.appendChild(row);
+    }
+
+    // Инициализируем 2 варианта при открытии формы
+    window.showCreate = function() {
+      document.getElementById("createForm").style.display = "block";
       document.getElementById("joinForm").style.display = "none";
       document.getElementById("observeForm").style.display = "none";
+
+      // Сбрасываем форму
+      const list = document.getElementById("optionsList");
+      list.innerHTML = "";
+      Object.keys(optionPhotos).forEach(k => delete optionPhotos[k]);
+      document.getElementById("pollQuestion").value = "";
+      createOptionRow(0);
+      createOptionRow(1);
+
+      document.getElementById("createForm").scrollIntoView({ behavior: "smooth" });
     };
 
     window.addOption = function() {
       const list = document.getElementById("optionsList");
-      const count = list.querySelectorAll(".option-input").length + 1;
-      if (count > 10) { alert("Максимум 10 вариантов!"); return; }
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "option-input";
-      input.placeholder = `Вариант ${count}`;
-      input.maxLength = 200; // FIX #6: ограничение длины на уровне input
-      list.appendChild(input);
+      const count = list.querySelectorAll(".option-row").length;
+      if (count >= 10) { alert("Максимум 10 вариантов!"); return; }
+      createOptionRow(count);
     };
   </script>
 

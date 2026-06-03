@@ -3,13 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    .option-checkbox { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--border, #2a2a3a); flex-shrink: 0; transition: all 0.2s; }
+    .option-checkbox.checked { background: var(--accent, #6c63ff); border-color: var(--accent, #6c63ff); }
+    .option-checkbox.checked::after { content: "✓"; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: bold; }
+    /* Фото в вариантах голосования */
+    .option-photo { width: 100%; height: auto; max-height: 220px; object-fit: contain; border-radius: 10px; margin-bottom: 8px; display: block; background: #0a0a1a; }
+    .option-item { flex-direction: column; align-items: stretch !important; gap: 0 !important; padding: 10px 14px !important; }
+    .option-item-row { display: flex; align-items: center; gap: 12px; }
+    /* Фото в результатах */
+    .result-photo { width: 100%; height: auto; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: 10px; display: block; background: #0a0a1a; }
+  </style>
   <!-- FIX нумбер 1: Content Security Policy — запрещает inline-скрипты со сторонних доменов -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com;
                  script-src 'self' 'unsafe-inline' https://*.googleapis.com https://www.gstatic.com;
                  style-src 'self' 'unsafe-inline';
-                 img-src 'self' data: https://*.googleusercontent.com https://www.gstatic.com;
-                 connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com;">
+                 img-src 'self' data: blob: https://*.googleusercontent.com https://www.gstatic.com https://firebasestorage.googleapis.com;
+                 connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://firebasestorage.googleapis.com;">
   <title>SV — Голосование</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="vote.css" />
@@ -46,6 +57,9 @@
         <div id="optionsList" class="options-list"></div>
         <button class="btn-primary btn-vote" id="voteBtn" onclick="submitVote()">Проголосовать</button>
         <p class="vote-note">Твой голос анонимен — никто не узнает твой выбор</p>
+        <div id="creatorShareBtn" style="display:none; margin-top:12px;">
+          <button class="btn-secondary" onclick="shareCode()">Поделиться кодом</button>
+        </div>
       </div>
 
       <div id="resultsState" style="display:none" class="vote-box">
@@ -111,7 +125,10 @@
 
     let currentUser = null;
     let pollData = null;
-    let selectedOption = null;
+    let pollPhotoURLs = null;
+    let selectedOption = null; // для single
+    let selectedOptions = new Set(); // для multiple
+    let currentVoteMode = "single"; // читается в submitVote
     let isCreator = false;
 
     // FIX нумбер 2 экранирование HTML — защита от XSS при вставке данных из БД
@@ -147,6 +164,7 @@
         const pollSnap = await getDoc(pollRef);
         if (!pollSnap.exists()) { showError(); return; }
         pollData = pollSnap.data();
+        pollPhotoURLs = pollData.photoURLs || null; // сохраняем отдельно
         isCreator = pollData.createdBy === currentUser.uid;
 
         if (isObserver) {
@@ -183,9 +201,24 @@
       document.getElementById("loadingState").style.display = "none";
       document.getElementById("voteState").style.display = "block";
 
-      // FIX #2 применяется: escapeHTML для всех данных из БД
+      // Показываем кнопку шаринга только создателю
+      if (isCreator) {
+        document.getElementById("creatorShareBtn").style.display = "block";
+      }
+
+      const isMultiple = pollData.voteMode === "multiple";
+      currentVoteMode = pollData.voteMode || "single"; // сохраняем для submitVote
+
       document.getElementById("voteCode").textContent = "Код: " + pollData.code;
       document.getElementById("voteQuestion").textContent = pollData.question;
+
+      // Подсказка для multiple режима
+      const noteEl = document.querySelector(".vote-note");
+      if (isMultiple) {
+        noteEl.textContent = "Можно выбрать несколько вариантов — твой голос анонимен";
+      } else {
+        noteEl.textContent = "Твой голос анонимен — никто не узнает твой выбор";
+      }
 
       const list = document.getElementById("optionsList");
       list.innerHTML = "";
@@ -194,32 +227,61 @@
         div.className = "option-item";
         div.setAttribute("data-index", i);
 
-        // FIX #2: НЕ используем innerHTML с данными из БД — строим DOM вручную
+        // Фото варианта сверху (если есть)
+        const votePhotoURLs = pollData.photoURLs || pollPhotoURLs || {};
+        if (votePhotoURLs[i]) {
+          const img = document.createElement("img");
+          img.src = votePhotoURLs[i];
+          img.className = "option-photo";
+          img.alt = option;
+          div.appendChild(img);
+        }
+
+        // Строка с иконкой и текстом
+        const optRow = document.createElement("div");
+        optRow.className = "option-item-row";
+
         const radio = document.createElement("div");
-        radio.className = "option-radio";
+        radio.className = isMultiple ? "option-checkbox" : "option-radio";
         radio.id = `radio_${i}`;
 
         const label = document.createElement("span");
-        label.textContent = option; 
+        label.textContent = option;
 
-        div.appendChild(radio);
-        div.appendChild(label);
-        div.onclick = () => selectOption(i);
+        optRow.appendChild(radio);
+        optRow.appendChild(label);
+        div.appendChild(optRow);
+
+        if (isMultiple) {
+          div.onclick = () => {
+            if (selectedOptions.has(i)) {
+              selectedOptions.delete(i);
+              div.classList.remove("selected");
+              radio.classList.remove("checked");
+            } else {
+              selectedOptions.add(i);
+              div.classList.add("selected");
+              radio.classList.add("checked");
+            }
+          };
+        } else {
+          div.onclick = () => {
+            selectedOption = i;
+            document.querySelectorAll(".option-item").forEach((el, j) => {
+              el.classList.toggle("selected", j === i);
+              document.getElementById(`radio_${j}`).classList.toggle("checked", j === i);
+            });
+          };
+        }
         list.appendChild(div);
       });
     }
 
-    window.selectOption = function(index) {
-      selectedOption = index;
-      document.querySelectorAll(".option-item").forEach((el, i) => {
-        el.classList.toggle("selected", i === index);
-        document.getElementById(`radio_${i}`).classList.toggle("checked", i === index);
-      });
-    };
-
   
     window.submitVote = async function() {
-      if (selectedOption === null) { alert("Выбери вариант!"); return; }
+      const isMultiple = currentVoteMode === "multiple";
+      if (isMultiple && selectedOptions.size === 0) { alert("Выбери хотя бы один вариант!"); return; }
+      if (!isMultiple && selectedOption === null) { alert("Выбери вариант!"); return; }
 
       const btn = document.getElementById("voteBtn");
       btn.textContent = "Сохраняем...";
@@ -241,17 +303,18 @@
           const voteSnap = await transaction.get(voteDocRef);
           if (voteSnap.exists()) throw new Error("already_voted");
 
-          //Записываем голос
-          transaction.set(voteDocRef, {
-            optionIndex: selectedOption,
-            votedAt: serverTimestamp()
-            // УБРАЛИ uid и hashedUID из документа — минимум данных
-          });
-
-          
-          const updateData = {};
-          updateData[`results.${selectedOption}`] = increment(1);
-          transaction.update(pollDocRef, updateData);
+          // Записываем голос
+          if (isMultiple) {
+            transaction.set(voteDocRef, { optionIndexes: Array.from(selectedOptions), votedAt: serverTimestamp() });
+            const updateData = {};
+            selectedOptions.forEach(idx => { updateData[`results.${idx}`] = increment(1); });
+            transaction.update(pollDocRef, updateData);
+          } else {
+            transaction.set(voteDocRef, { optionIndex: selectedOption, votedAt: serverTimestamp() });
+            const updateData = {};
+            updateData[`results.${selectedOption}`] = increment(1);
+            transaction.update(pollDocRef, updateData);
+          }
         });
 
         // Перезагружаем pollData из БД после транзакции
@@ -350,6 +413,16 @@
         const votesLabel = document.createElement("span");
         votesLabel.className = "result-votes";
         votesLabel.textContent = votes + " голосов";
+
+        // Фото в результатах — добавляем первым в div
+        const photoURLs = (data.photoURLs) || pollPhotoURLs || {};
+        if (photoURLs[i]) {
+          const img = document.createElement("img");
+          img.src = photoURLs[i];
+          img.className = "result-photo";
+          img.alt = option;
+          div.appendChild(img);
+        }
 
         div.appendChild(topRow);
         div.appendChild(barBg);
