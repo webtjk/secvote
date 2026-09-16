@@ -5,10 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SV — Анонимное голосование</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    #loader {
+      position: fixed;
+      inset: 0;
+      background: #0a1628;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.3s;
+    }
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .loader-logo {
+      color: white;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+  </style>
 </head>
 <body>
 
-  <div class="page">
+  <!-- Загрузочный экран -->
+  <div id="loader">
+    <div class="loader-logo">SV</div>
+  </div>
+
+  <div class="page" id="mainContent" style="display:none">
+
     <header class="header">
       <div class="logo">
         <div class="logo-icon">SV</div>
@@ -18,20 +46,26 @@
 
     <main class="hero">
       <div class="hero-content">
+
         <div class="badge">🔒 100% Анонимно</div>
+
         <h1 class="hero-title">
           Голосуй честно.<br/>
           <span class="highlight">Никто не узнает.</span>
         </h1>
+
         <p class="hero-subtitle">
           Создавай голосования или присоединяйся по коду.<br/>
           Результаты видят все — кто как голосовал, не знает никто.
         </p>
-        <a class="btn-google" id="loginBtn" href="https://secvote.web.app/index.html">
+
+        <button class="btn-google" id="loginBtn">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="google-icon"/>
           Войти через Google
-        </a>
+        </button>
+
         <p class="login-note" id="statusText">Регистрация не нужна — просто войди через Google</p>
+
       </div>
 
       <div class="features">
@@ -56,59 +90,90 @@
     <footer class="footer">
       <p>© 2026 SV SecureVote — Анонимные голосования</p>
     </footer>
+
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAZL7CGXvVdDscq2W0IU8lqRWY6X53nlQM",
-      authDomain: "vs-sv-6fbda.firebaseapp.com",
-      projectId: "vs-sv-6fbda",
-      storageBucket: "vs-sv-6fbda.firebasestorage.app",
-      messagingSenderId: "958043340271",
-      appId: "1:958043340271:web:22a1347feb4f76b0ebca1a",
-      measurementId: "G-RVRJCMYVH4"
-    };
+  <script>
+    const API = 'http://127.0.0.1:5000/api';
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-    const statusText = document.getElementById("statusText");
-    const btn = document.getElementById("loginBtn");
+    async function init() {
+      try {
+        const res = await fetch(`${API}/auth/me`, {
+          credentials: 'include',
+          signal: AbortSignal.timeout(2000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.id) {
+            // Уже залогинен — переходим на дашборд
+            window.location.replace('/dashboard.html');
+            return;
+          }
+        }
+      } catch (e) {
+        // Не залогинен — показываем страницу
+      }
 
-    provider.setCustomParameters({ prompt: "select_account" });
+      // Показываем страницу
+      document.getElementById('loader').classList.add('hidden');
+      document.getElementById('mainContent').style.display = 'block';
 
-    // Если уже залогинен — сразу на дашборд
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        window.location.href = "dashboard.html";
-      } else {
-        btn.disabled = false;
-        statusText.textContent = "Регистрация не нужна — просто войди через Google";
+      // Инициализируем Google
+      if (typeof google !== 'undefined') {
+        google.accounts.id.initialize({
+          client_id: '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com',
+          callback: handleGoogleLogin,
+          auto_select: false,
+        });
+      }
+    }
+
+    // Запускаем после загрузки страницы
+    window.addEventListener('load', init);
+
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      if (typeof google !== 'undefined') {
+        google.accounts.id.prompt();
       }
     });
 
-    btn.addEventListener("click", async (event) => {
-      event.preventDefault();
+    async function handleGoogleLogin(response) {
+      const statusText = document.getElementById('statusText');
+      const btn = document.getElementById('loginBtn');
       btn.disabled = true;
-      statusText.textContent = "Открываем вход через Google...";
+      statusText.textContent = 'Входим...';
 
       try {
-        await signInWithPopup(auth, provider);
-        window.location.href = "dashboard.html";
-      } catch (error) {
-        console.error("Ошибка авторизации:", error);
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+
+        const res = await fetch(`${API}/auth/google/login`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            google_id: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            avatar: payload.picture,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          statusText.textContent = '✅ Успешно!';
+          window.location.replace('/dashboard.html');
+        } else {
+          statusText.textContent = '❌ Ошибка входа.';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        statusText.textContent = '❌ Ошибка: ' + e.message;
         btn.disabled = false;
-        statusText.textContent = `❌ Ошибка: ${error.message}`;
       }
-    });
+    }
   </script>
 
 </body>
