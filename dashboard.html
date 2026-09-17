@@ -7,25 +7,17 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="dashboard.css" />
   <style>
-    .vote-mode-toggle { display: flex; gap: 12px; flex-wrap: wrap; }
-    .mode-option { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border: 2px solid var(--card-border, #2a2a3a); border-radius: 12px; cursor: pointer; flex: 1; min-width: 140px; transition: border-color 0.2s; }
-    .mode-option:has(input:checked) { border-color: var(--blue-bright, #2563eb); background: rgba(37,99,235,0.08); }
-    .mode-option input { display: none; }
-    .mode-option span { font-weight: 600; font-size: 15px; }
-    .mode-option small { color: var(--gray-muted, #888); font-size: 12px; }
     #loader { position: fixed; inset: 0; background: #0a1628; display: flex; align-items: center; justify-content: center; z-index: 9999; }
     .loader-logo { color: white; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
   </style>
 </head>
 <body>
 
-  <!-- Загрузочный экран -->
   <div id="loader">
     <div class="loader-logo">SV</div>
   </div>
 
   <div class="page" id="mainContent" style="display:none">
-
     <header class="header">
       <div class="logo">
         <div class="logo-icon">SV</div>
@@ -39,7 +31,6 @@
     </header>
 
     <main class="dashboard">
-
       <div class="dashboard-welcome">
         <h1>Привет, <span id="welcomeName" class="highlight"></span>! 👋</h1>
         <p>Что хочешь сделать?</p>
@@ -137,31 +128,24 @@
           <p class="empty-text">Загружаем...</p>
         </div>
       </div>
-
     </main>
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:5000/api';
+    const API = window.location.origin + '/api';
     let currentUser = null;
     let allPolls = [];
     let currentTab = 'active';
 
-    // Проверяем авторизацию
     async function init() {
       try {
         const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
-        if (!res.ok) {
-          window.location.replace('/');
-          return;
-        }
+        if (!res.ok) { window.location.replace('/'); return; }
         currentUser = await res.json();
 
-        // Показываем страницу
         document.getElementById('loader').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
 
-        // Заполняем данные пользователя
         document.getElementById('userName').textContent = currentUser.name || currentUser.email;
         document.getElementById('welcomeName').textContent = (currentUser.name || '').split(' ')[0] || 'друг';
 
@@ -171,31 +155,23 @@
           photo.style.display = 'block';
         }
 
-        // Инициализируем варианты
         addOptionInput(0);
         addOptionInput(1);
-
-        // Загружаем голосования
         loadPolls();
-
       } catch (e) {
         window.location.replace('/');
       }
     }
 
-    // Выход
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await fetch(`${API}/auth/logout`, { credentials: 'include' });
       window.location.replace('/');
     });
 
-    // Тип доступа
     document.getElementById('accessType').addEventListener('change', function() {
-      document.getElementById('domainGroup').style.display =
-        this.value === 'domain' ? 'block' : 'none';
+      document.getElementById('domainGroup').style.display = this.value === 'domain' ? 'block' : 'none';
     });
 
-    // Создать голосование
     async function createPoll() {
       const question = document.getElementById('pollQuestion').value.trim();
       const inputs = document.querySelectorAll('.option-input');
@@ -223,7 +199,6 @@
         });
 
         const data = await res.json();
-
         if (data.success) {
           alert(`✅ Голосование создано!\nКод: ${data.code}\nПоделись этим кодом с участниками!`);
           hideAll();
@@ -239,11 +214,9 @@
       }
     }
 
-    // Присоединиться по коду
     async function joinPoll() {
       const code = document.getElementById('joinCode').value.trim().toUpperCase();
       if (code.length !== 6) { alert('Введи 6-значный код!'); return; }
-
       try {
         const res = await fetch(`${API}/polls/join/${code}`, { credentials: 'include' });
         const data = await res.json();
@@ -252,16 +225,12 @@
         } else {
           alert('❌ ' + (data.error || 'Голосование не найдено'));
         }
-      } catch (e) {
-        alert('❌ Ошибка сети');
-      }
+      } catch (e) { alert('❌ Ошибка сети'); }
     }
 
-    // Наблюдатель
     async function observePoll() {
       const code = document.getElementById('observeCode').value.trim().toUpperCase();
       if (code.length !== 6) { alert('Введи 6-значный код!'); return; }
-
       try {
         const res = await fetch(`${API}/polls/join/${code}`, { credentials: 'include' });
         const data = await res.json();
@@ -270,12 +239,9 @@
         } else {
           alert('❌ ' + (data.error || 'Голосование не найдено'));
         }
-      } catch (e) {
-        alert('❌ Ошибка сети');
-      }
+      } catch (e) { alert('❌ Ошибка сети'); }
     }
 
-    // Загрузить мои голосования
     async function loadPolls() {
       try {
         const res = await fetch(`${API}/polls/my`, { credentials: 'include' });
@@ -286,7 +252,6 @@
       }
     }
 
-    // Отрисовать список
     function renderPolls() {
       const list = document.getElementById('pollsList');
       document.getElementById('tabActive').classList.toggle('active', currentTab === 'active');
@@ -320,66 +285,40 @@
       });
     }
 
-    // Удалить голосование
     async function deletePoll(pollId, question) {
       if (!confirm(`Удалить голосование?\n"${question}"\n\nЭто действие нельзя отменить!`)) return;
-
       try {
-        const res = await fetch(`${API}/polls/${pollId}/delete`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
+        const res = await fetch(`${API}/polls/${pollId}/delete`, { method: 'DELETE', credentials: 'include' });
         const data = await res.json();
-        if (data.success) {
-          allPolls = allPolls.filter(p => p.id !== pollId);
-          renderPolls();
-        } else {
-          alert('❌ ' + (data.error || 'Ошибка'));
-        }
-      } catch (e) {
-        alert('❌ Ошибка сети');
-      }
+        if (data.success) { allPolls = allPolls.filter(p => p.id !== pollId); renderPolls(); }
+        else { alert('❌ ' + (data.error || 'Ошибка')); }
+      } catch (e) { alert('❌ Ошибка сети'); }
     }
 
-    // Экспорт CSV
     function exportCSV(pollId) {
       const poll = allPolls.find(p => p.id === pollId);
       if (!poll) return;
-
       const total = poll.total_votes || 0;
       let csv = 'Вариант,Голоса,Процент\n';
       poll.options.forEach(opt => {
         const percent = total > 0 ? Math.round((opt.vote_count / total) * 100) : 0;
         csv += `"${opt.text.replace(/"/g, '""')}",${opt.vote_count},${percent}%\n`;
       });
-      csv += `\nВсего голосов,${total},100%\n`;
-      csv += `Вопрос,"${poll.question.replace(/"/g, '""')}"\n`;
-      csv += `Код,${poll.code}\n`;
-      csv += `Статус,${poll.closed ? 'Закрыто' : 'Активно'}\n`;
-
+      csv += `\nВсего голосов,${total}\nВопрос,"${poll.question.replace(/"/g, '""')}"\nКод,${poll.code}\n`;
       const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `sv_results_${poll.code}.csv`;
-      a.click();
+      a.href = url; a.download = `sv_results_${poll.code}.csv`; a.click();
       URL.revokeObjectURL(url);
     }
 
-    // Вкладки
-    function switchTab(tab) {
-      currentTab = tab;
-      renderPolls();
-    }
+    function switchTab(tab) { currentTab = tab; renderPolls(); }
 
-    // Варианты ответов
     function addOptionInput(index) {
       const list = document.getElementById('optionsList');
       const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'option-input';
-      input.placeholder = `Вариант ${index + 1}`;
-      input.maxLength = 200;
+      input.type = 'text'; input.className = 'option-input';
+      input.placeholder = `Вариант ${index + 1}`; input.maxLength = 200;
       list.appendChild(input);
     }
 
@@ -389,7 +328,6 @@
       addOptionInput(count);
     }
 
-    // Показать/скрыть формы
     function showCreate() {
       document.getElementById('createForm').style.display = 'block';
       document.getElementById('joinForm').style.display = 'none';
@@ -417,18 +355,11 @@
       document.getElementById('observeForm').style.display = 'none';
     }
 
-    // Защита от XSS
     function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // Запускаем
     init();
   </script>
-
 </body>
 </html>

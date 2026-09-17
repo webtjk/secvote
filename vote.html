@@ -18,7 +18,6 @@
   </div>
 
   <div class="page" id="mainContent" style="display:none">
-
     <header class="header">
       <div class="logo" onclick="window.location.href='/dashboard.html'" style="cursor:pointer">
         <div class="logo-icon">SV</div>
@@ -32,13 +31,11 @@
 
     <main class="vote-main">
 
-      <!-- ЗАГРУЗКА -->
       <div id="loadingState" class="state-box">
         <div class="spinner"></div>
         <p>Загружаем голосование...</p>
       </div>
 
-      <!-- ГОЛОСОВАНИЕ -->
       <div id="voteState" style="display:none" class="vote-box">
         <div class="vote-header">
           <span class="vote-badge">🔒 Анонимное голосование</span>
@@ -51,7 +48,6 @@
         <p class="vote-note">Твой голос анонимен — никто не узнает твой выбор</p>
       </div>
 
-      <!-- РЕЗУЛЬТАТЫ -->
       <div id="resultsState" style="display:none" class="vote-box">
         <div class="vote-header">
           <span class="vote-badge" id="resultsBadge">📊 Результаты</span>
@@ -60,7 +56,6 @@
         <div id="resultsClosedBanner" style="display:none" class="closed-banner">🔒 Голосование закрыто</div>
         <h1 id="resultsQuestion" class="vote-question"></h1>
 
-        <!-- Только для создателя -->
         <div id="creatorControls" style="display:none">
           <button class="btn-close-poll" id="closePollBtn" onclick="togglePoll()">🔒 Закрыть голосование</button>
         </div>
@@ -68,7 +63,6 @@
         <div id="resultsList" class="results-list"></div>
         <p class="results-total" id="totalVotes"></p>
 
-        <!-- Токен верификации -->
         <div id="tokenBox" style="display:none; margin-top:12px; padding:12px; background:rgba(37,99,235,0.1); border-radius:12px; border:1px solid rgba(96,165,250,0.3);">
           <p style="font-size:13px; color:var(--gray-muted); margin-bottom:6px;">🔐 Твой токен верификации:</p>
           <p id="tokenText" style="font-size:11px; word-break:break-all; color:var(--blue-glow); font-family:monospace;"></p>
@@ -86,7 +80,6 @@
         </div>
       </div>
 
-      <!-- ОШИБКА -->
       <div id="errorState" style="display:none" class="state-box">
         <div style="font-size:48px">❌</div>
         <p id="errorText">Голосование не найдено</p>
@@ -97,7 +90,7 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:5000/api';
+    const API = window.location.origin + '/api';
     const urlParams = new URLSearchParams(window.location.search);
     const pollId = urlParams.get('id');
     const isObserver = urlParams.get('mode') === 'observe';
@@ -108,14 +101,9 @@
 
     async function init() {
       try {
-        // Проверяем авторизацию
         const authRes = await fetch(`${API}/auth/me`, { credentials: 'include' });
-        if (!authRes.ok) {
-          window.location.replace('/');
-          return;
-        }
+        if (!authRes.ok) { window.location.replace('/'); return; }
 
-        // Показываем страницу
         document.getElementById('loader').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
 
@@ -123,7 +111,6 @@
         if (isObserver) document.getElementById('observerBadge').style.display = 'block';
 
         await loadResults();
-
       } catch (e) {
         window.location.replace('/');
       }
@@ -133,29 +120,14 @@
       try {
         const res = await fetch(`${API}/votes/results/${pollId}`, { credentials: 'include' });
         const data = await res.json();
-
         if (data.error) { showError(data.error); return; }
-
         pollData = data;
 
-        if (isObserver) {
-          showResults();
-          startAutoRefresh();
-          return;
-        }
-
-        if (data.has_voted) {
-          showResults();
-          startAutoRefresh();
-        } else if (data.poll.closed) {
-          showResults();
-        } else {
-          showVote();
-        }
-
-      } catch (e) {
-        showError('Ошибка загрузки');
-      }
+        if (isObserver) { showResults(); startAutoRefresh(); return; }
+        if (data.has_voted) { showResults(); startAutoRefresh(); }
+        else if (data.poll.closed) { showResults(); }
+        else { showVote(); }
+      } catch (e) { showError('Ошибка загрузки'); }
     }
 
     function showVote() {
@@ -186,7 +158,6 @@
 
     async function submitVote() {
       if (!selectedOption) { alert('Выбери вариант!'); return; }
-
       const btn = document.getElementById('voteBtn');
       btn.textContent = 'Отправляем...';
       btn.disabled = true;
@@ -198,14 +169,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ poll_id: parseInt(pollId), option_id: selectedOption }),
         });
-
         const data = await res.json();
-
         if (data.success) {
-          // Сохраняем токен
-          if (data.token) {
-            localStorage.setItem(`sv_token_${pollId}`, data.token);
-          }
+          if (data.token) localStorage.setItem(`sv_token_${pollId}`, data.token);
           await loadResults();
           showResults();
           startAutoRefresh();
@@ -225,22 +191,15 @@
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('voteState').style.display = 'none';
       document.getElementById('resultsState').style.display = 'block';
-
       document.getElementById('resultsCode').textContent = 'Код: ' + pollData.poll.code;
       document.getElementById('resultsQuestion').textContent = pollData.poll.question;
 
-      // Наблюдатель
-      if (isObserver) {
-        document.getElementById('resultsBadge').textContent = '👁️ Режим наблюдателя';
-      }
-
-      // Создатель
+      if (isObserver) document.getElementById('resultsBadge').textContent = '👁️ Режим наблюдателя';
       if (pollData.poll.is_creator) {
         document.getElementById('creatorControls').style.display = 'block';
         document.getElementById('exportBtn').style.display = 'inline-flex';
       }
 
-      // Токен верификации
       const token = localStorage.getItem(`sv_token_${pollId}`) || pollData.my_token;
       if (token) {
         document.getElementById('tokenBox').style.display = 'block';
@@ -252,8 +211,6 @@
 
     function updateResultsUI() {
       if (!pollData) return;
-
-      // Статус закрытия
       const closed = pollData.poll.closed;
       document.getElementById('resultsClosedBanner').style.display = closed ? 'block' : 'none';
       document.getElementById('liveIndicator').style.display = closed ? 'none' : 'flex';
@@ -285,60 +242,40 @@
       });
     }
 
-    // Автообновление результатов
     function startAutoRefresh() {
       if (refreshInterval) clearInterval(refreshInterval);
       refreshInterval = setInterval(async () => {
         if (pollData && !pollData.poll.closed) {
-          const res = await fetch(`${API}/votes/results/${pollId}`, { credentials: 'include' });
-          pollData = await res.json();
-          updateResultsUI();
+          try {
+            const res = await fetch(`${API}/votes/results/${pollId}`, { credentials: 'include' });
+            pollData = await res.json();
+            updateResultsUI();
+          } catch (e) {}
         }
       }, 3000);
     }
 
-    // Закрыть/открыть голосование
     async function togglePoll() {
       try {
-        const res = await fetch(`${API}/polls/${pollId}/toggle`, {
-          method: 'POST',
-          credentials: 'include',
-        });
+        const res = await fetch(`${API}/polls/${pollId}/toggle`, { method: 'POST', credentials: 'include' });
         const data = await res.json();
-        if (data.closed !== undefined) {
-          pollData.poll.closed = data.closed;
-          updateResultsUI();
-        }
-      } catch (e) {
-        alert('❌ Ошибка');
-      }
+        if (data.closed !== undefined) { pollData.poll.closed = data.closed; updateResultsUI(); }
+      } catch (e) { alert('❌ Ошибка'); }
     }
 
-    // Поделиться кодом
     function shareCode() {
-      if (pollData) {
-        navigator.clipboard.writeText(pollData.poll.code);
-        alert(`Код скопирован: ${pollData.poll.code}`);
-      }
+      if (pollData) { navigator.clipboard.writeText(pollData.poll.code); alert(`Код скопирован: ${pollData.poll.code}`); }
     }
 
-    // Экспорт CSV
     function exportCSV() {
       if (!pollData) return;
       let csv = 'Вариант,Голоса,Процент\n';
-      pollData.options.forEach(opt => {
-        csv += `"${opt.text.replace(/"/g, '""')}",${opt.votes},${opt.percent}%\n`;
-      });
-      csv += `\nВсего голосов,${pollData.total}\n`;
-      csv += `Вопрос,"${pollData.poll.question.replace(/"/g, '""')}"\n`;
-      csv += `Код,${pollData.poll.code}\n`;
-
+      pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.percent}%\n`; });
+      csv += `\nВсего голосов,${pollData.total}\nВопрос,"${pollData.poll.question.replace(/"/g,'""')}"\nКод,${pollData.poll.code}\n`;
       const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `sv_results_${pollData.poll.code}.csv`;
-      a.click();
+      a.href = url; a.download = `sv_results_${pollData.poll.code}.csv`; a.click();
       URL.revokeObjectURL(url);
     }
 
@@ -349,16 +286,10 @@
     }
 
     function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // Запускаем
     init();
   </script>
-
 </body>
 </html>

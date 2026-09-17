@@ -6,37 +6,18 @@
   <title>SV — Анонимное голосование</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    #loader {
-      position: fixed;
-      inset: 0;
-      background: #0a1628;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      transition: opacity 0.3s;
-    }
-    #loader.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .loader-logo {
-      color: white;
-      font-size: 32px;
-      font-weight: 900;
-      letter-spacing: 2px;
-    }
+    #loader { position: fixed; inset: 0; background: #0a1628; display: flex; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.3s; }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-logo { color: white; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
   </style>
 </head>
 <body>
 
-  <!-- Загрузочный экран -->
   <div id="loader">
     <div class="loader-logo">SV</div>
   </div>
 
   <div class="page" id="mainContent" style="display:none">
-
     <header class="header">
       <div class="logo">
         <div class="logo-icon">SV</div>
@@ -46,26 +27,20 @@
 
     <main class="hero">
       <div class="hero-content">
-
         <div class="badge">🔒 100% Анонимно</div>
-
         <h1 class="hero-title">
           Голосуй честно.<br/>
           <span class="highlight">Никто не узнает.</span>
         </h1>
-
         <p class="hero-subtitle">
           Создавай голосования или присоединяйся по коду.<br/>
           Результаты видят все — кто как голосовал, не знает никто.
         </p>
-
         <button class="btn-google" id="loginBtn">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="google-icon"/>
           Войти через Google
         </button>
-
         <p class="login-note" id="statusText">Регистрация не нужна — просто войди через Google</p>
-
       </div>
 
       <div class="features">
@@ -90,52 +65,46 @@
     <footer class="footer">
       <p>© 2026 SV SecureVote — Анонимные голосования</p>
     </footer>
-
   </div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-
   <script>
-    const API = 'http://127.0.0.1:5000/api';
+    const API = window.location.origin + '/api';
 
     async function init() {
       try {
         const res = await fetch(`${API}/auth/me`, {
           credentials: 'include',
-          signal: AbortSignal.timeout(2000)
+          signal: AbortSignal.timeout(3000)
         });
         if (res.ok) {
           const data = await res.json();
           if (data.id) {
-            // Уже залогинен — переходим на дашборд
             window.location.replace('/dashboard.html');
             return;
           }
         }
-      } catch (e) {
-        // Не залогинен — показываем страницу
-      }
+      } catch (e) {}
 
-      // Показываем страницу
       document.getElementById('loader').classList.add('hidden');
       document.getElementById('mainContent').style.display = 'block';
 
-      // Инициализируем Google
-      if (typeof google !== 'undefined') {
-        google.accounts.id.initialize({
-          client_id: '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com',
-          callback: handleGoogleLogin,
-          auto_select: false,
-        });
-      }
+      setTimeout(() => {
+        if (typeof google !== 'undefined') {
+          google.accounts.id.initialize({
+            client_id: '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com',
+            callback: handleGoogleLogin,
+            auto_select: false,
+          });
+        }
+      }, 500);
     }
-
-    // Запускаем после загрузки страницы
-    window.addEventListener('load', init);
 
     document.getElementById('loginBtn').addEventListener('click', () => {
       if (typeof google !== 'undefined') {
         google.accounts.id.prompt();
+      } else {
+        document.getElementById('statusText').textContent = '❌ Google не загрузился. Обнови страницу.';
       }
     });
 
@@ -174,7 +143,8 @@
         btn.disabled = false;
       }
     }
-  </script>
 
+    window.addEventListener('load', init);
+  </script>
 </body>
 </html>
