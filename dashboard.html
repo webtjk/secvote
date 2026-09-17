@@ -1,133 +1,170 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="tg">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SV — Дашборд</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="dashboard.css" />
   <style>
-    #loader { position: fixed; inset: 0; background: #0a1628; display: flex; align-items: center; justify-content: center; z-index: 9999; }
-    .loader-logo { color: white; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
+    #loader {
+      position: fixed; inset: 0;
+      background: #0f172a;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .loader-inner { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .loader-logo {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; color: white;
+      box-shadow: 0 8px 24px rgba(37,99,235,0.5);
+      animation: pulse-logo 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-logo {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .loader-text { color: #94a3b8; font-size: 14px; }
+
+    select {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+      cursor: pointer;
+    }
+    select:focus { border-color: var(--primary); }
+    select option { background: #1e293b; }
   </style>
 </head>
 <body>
 
   <div id="loader">
-    <div class="loader-logo">SV</div>
+    <div class="loader-inner">
+      <div class="loader-logo">SV</div>
+      <div class="loader-text">Бор мешавад...</div>
+    </div>
   </div>
 
   <div class="page" id="mainContent" style="display:none">
+
     <header class="header">
       <div class="logo">
         <div class="logo-icon">SV</div>
         <span class="logo-text">SecureVote</span>
       </div>
       <div class="user-info">
-        <img id="userPhoto" src="" alt="Фото" class="user-photo" style="display:none" />
+        <img id="userPhoto" src="" alt="" class="user-photo" style="display:none" />
         <span id="userName" class="user-name"></span>
-        <button class="btn-logout" id="logoutBtn">Выйти</button>
+        <button class="btn-logout" id="logoutBtn">Баромадан</button>
       </div>
     </header>
 
     <main class="dashboard">
+
       <div class="dashboard-welcome">
-        <h1>Привет, <span id="welcomeName" class="highlight"></span>! 👋</h1>
-        <p>Что хочешь сделать?</p>
+        <h1>Салом, <span id="welcomeName" style="color:#3b82f6"></span>! 👋</h1>
+        <p>Чӣ мехоҳед кунед?</p>
       </div>
 
+      <!-- КАРТОЧКИ -->
       <div class="dashboard-cards">
         <div class="dash-card">
           <div class="dash-card-icon">🗳️</div>
-          <h2>Создать голосование</h2>
-          <p>Задай вопрос, добавь варианты ответов и пригласи участников по коду</p>
-          <button class="btn-primary" onclick="showCreate()">Создать</button>
+          <h2>Овоздиҳӣ созед</h2>
+          <p>Савол гузоред, вариантҳо илова кунед ва рамзро мубодила кунед</p>
+          <button class="btn-primary" onclick="showCreate()">Сохтан</button>
         </div>
         <div class="dash-card">
           <div class="dash-card-icon">🔗</div>
-          <h2>Присоединиться</h2>
-          <p>Введи код который тебе прислали и проголосуй анонимно</p>
-          <button class="btn-secondary" onclick="showJoin()">Войти по коду</button>
+          <h2>Бо рамз ворид шавед</h2>
+          <p>Рамзеро, ки фиристодаанд, ворид кунед ва овоз диҳед</p>
+          <button class="btn-secondary" onclick="showJoin()">Ворид шудан</button>
         </div>
         <div class="dash-card">
           <div class="dash-card-icon">👁️</div>
-          <h2>Наблюдатель</h2>
-          <p>Следи за результатами голосования в реальном времени без права голоса</p>
-          <button class="btn-secondary" onclick="showObserve()">Смотреть</button>
+          <h2>Нозир</h2>
+          <p>Натиҷаро дар вақти воқеӣ бубинед бе ҳуқуқи овоздиҳӣ</p>
+          <button class="btn-secondary" onclick="showObserve()">Тамошо кардан</button>
         </div>
       </div>
 
       <!-- ФОРМА СОЗДАНИЯ -->
       <div class="form-box" id="createForm" style="display:none">
-        <h2>📝 Новое голосование</h2>
+        <h2>📝 Овоздиҳии нав</h2>
         <div class="form-group">
-          <label>Вопрос</label>
-          <input type="text" id="pollQuestion" placeholder="Например: Какой день для встречи?" maxlength="300" />
+          <label>Савол</label>
+          <input type="text" id="pollQuestion" placeholder="Масалан: Рӯзи вохӯрӣ кадом аст?" maxlength="300" />
         </div>
         <div class="form-group">
-          <label>Варианты ответов</label>
+          <label>Вариантҳо</label>
           <div id="optionsList"></div>
-          <button class="btn-add" onclick="addOption()">+ Добавить вариант</button>
+          <button class="btn-add" onclick="addOption()">+ Вариант илова кунед</button>
         </div>
         <div class="form-group">
-          <label>Тип доступа</label>
-          <select id="accessType" style="padding:12px; border-radius:10px; border:1px solid var(--card-border,#2a2a3a); background:rgba(255,255,255,0.05); color:inherit; width:100%;">
-            <option value="open">🔓 Открытое — все у кого есть код</option>
-            <option value="domain">📧 По домену email — только @компания.com</option>
+          <label>Намуди дастрасӣ</label>
+          <select id="accessType">
+            <option value="open">🔓 Кушода — ҳама бо рамз</option>
+            <option value="domain">📧 Бо домени email</option>
           </select>
         </div>
         <div class="form-group" id="domainGroup" style="display:none">
-          <label>Домен email</label>
-          <input type="text" id="allowedDomain" placeholder="например: company.com" />
+          <label>Домени email</label>
+          <input type="text" id="allowedDomain" placeholder="масалан: company.com" />
         </div>
         <div class="form-actions">
-          <button class="btn-cancel" onclick="hideAll()">Отмена</button>
-          <button class="btn-primary" id="createBtn" onclick="createPoll()">Создать голосование</button>
+          <button class="btn-cancel" onclick="hideAll()">Бекор кардан</button>
+          <button class="btn-primary" id="createBtn" onclick="createPoll()" style="width:auto; padding:11px 24px;">Сохтан</button>
         </div>
       </div>
 
-      <!-- ФОРМА ВХОДА ПО КОДУ -->
+      <!-- ФОРМА КОДА -->
       <div class="form-box" id="joinForm" style="display:none">
-        <h2>🔗 Войти по коду</h2>
+        <h2>🔗 Бо рамз ворид шавед</h2>
         <div class="form-group">
-          <label>Код голосования</label>
-          <input type="text" id="joinCode" placeholder="Например: ABC123" maxlength="6"
-            style="text-transform:uppercase; letter-spacing:4px; font-size:24px; text-align:center;" />
+          <label>Рамзи овоздиҳӣ</label>
+          <input type="text" id="joinCode" placeholder="ABC123" maxlength="6"
+            style="text-transform:uppercase; letter-spacing:6px; font-size:26px; text-align:center; font-weight:800;" />
         </div>
         <div class="form-actions">
-          <button class="btn-cancel" onclick="hideAll()">Отмена</button>
-          <button class="btn-primary" onclick="joinPoll()">Войти</button>
+          <button class="btn-cancel" onclick="hideAll()">Бекор кардан</button>
+          <button class="btn-primary" onclick="joinPoll()" style="width:auto; padding:11px 24px;">Ворид шудан</button>
         </div>
       </div>
 
       <!-- ФОРМА НАБЛЮДАТЕЛЯ -->
       <div class="form-box" id="observeForm" style="display:none">
-        <h2>👁️ Режим наблюдателя</h2>
-        <p style="color:var(--gray-muted);font-size:14px;margin-bottom:16px;">
-          Ты сможешь видеть результаты в реальном времени, но не сможешь голосовать.
-        </p>
+        <h2>👁️ Нозир</h2>
+        <p style="color:var(--text2); font-size:13px; margin-bottom:16px;">Натиҷаро мебинед, аммо овоз дода наметавонед.</p>
         <div class="form-group">
-          <label>Код голосования</label>
-          <input type="text" id="observeCode" placeholder="Например: ABC123" maxlength="6"
-            style="text-transform:uppercase; letter-spacing:4px; font-size:24px; text-align:center;" />
+          <label>Рамзи овоздиҳӣ</label>
+          <input type="text" id="observeCode" placeholder="ABC123" maxlength="6"
+            style="text-transform:uppercase; letter-spacing:6px; font-size:26px; text-align:center; font-weight:800;" />
         </div>
         <div class="form-actions">
-          <button class="btn-cancel" onclick="hideAll()">Отмена</button>
-          <button class="btn-primary" onclick="observePoll()">Смотреть результаты</button>
+          <button class="btn-cancel" onclick="hideAll()">Бекор кардан</button>
+          <button class="btn-primary" onclick="observePoll()" style="width:auto; padding:11px 24px;">Тамошо кардан</button>
         </div>
       </div>
 
       <!-- МОИ ГОЛОСОВАНИЯ -->
       <div class="my-polls">
-        <h2>Мои голосования</h2>
+        <h2>Овоздиҳиҳои ман</h2>
         <div class="tabs">
-          <button class="tab active" id="tabActive" onclick="switchTab('active')">🟢 Активные</button>
-          <button class="tab" id="tabClosed" onclick="switchTab('closed')">🔒 Архив</button>
+          <button class="tab active" id="tabActive" onclick="switchTab('active')">🟢 Фаъол</button>
+          <button class="tab" id="tabClosed" onclick="switchTab('closed')">🔒 Бойгонӣ</button>
         </div>
         <div id="pollsList" class="polls-list">
-          <p class="empty-text">Загружаем...</p>
+          <p class="empty-text">Бор мешавад...</p>
         </div>
       </div>
+
     </main>
   </div>
 
@@ -146,8 +183,9 @@
         document.getElementById('loader').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
 
+        const firstName = (currentUser.name || '').split(' ')[0] || 'Дӯст';
         document.getElementById('userName').textContent = currentUser.name || currentUser.email;
-        document.getElementById('welcomeName').textContent = (currentUser.name || '').split(' ')[0] || 'друг';
+        document.getElementById('welcomeName').textContent = firstName;
 
         if (currentUser.avatar) {
           const photo = document.getElementById('userPhoto');
@@ -158,9 +196,7 @@
         addOptionInput(0);
         addOptionInput(1);
         loadPolls();
-      } catch (e) {
-        window.location.replace('/');
-      }
+      } catch (e) { window.location.replace('/'); }
     }
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -177,13 +213,13 @@
       const inputs = document.querySelectorAll('.option-input');
       const options = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
 
-      if (!question) { alert('Введи вопрос!'); return; }
-      if (options.length < 2) { alert('Добавь минимум 2 варианта!'); return; }
-      if (options.length > 10) { alert('Максимум 10 вариантов!'); return; }
+      if (!question) { alert('Саволро ворид кунед!'); return; }
+      if (options.length < 2) { alert('Ҳадди ақал 2 вариант илова кунед!'); return; }
+      if (options.length > 10) { alert('Ҳадди аксар 10 вариант!'); return; }
 
       const btn = document.getElementById('createBtn');
       btn.disabled = true;
-      btn.textContent = 'Создаём...';
+      btn.textContent = 'Сохта истодем...';
 
       try {
         const res = await fetch(`${API}/polls/create`, {
@@ -191,8 +227,7 @@
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            question,
-            options,
+            question, options,
             access_type: document.getElementById('accessType').value,
             allowed_domain: document.getElementById('allowedDomain').value.trim() || null,
           }),
@@ -200,46 +235,40 @@
 
         const data = await res.json();
         if (data.success) {
-          alert(`✅ Голосование создано!\nКод: ${data.code}\nПоделись этим кодом с участниками!`);
+          alert(`✅ Овоздиҳӣ сохта шуд!\nРамз: ${data.code}\nРамзро бо иштирокчиён мубодила кунед!`);
           hideAll();
           loadPolls();
         } else {
-          alert('❌ ' + (data.error || 'Ошибка'));
+          alert('❌ ' + (data.error || 'Хато'));
         }
       } catch (e) {
-        alert('❌ Ошибка сети');
+        alert('❌ Хатои шабака');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Создать голосование';
+        btn.textContent = 'Сохтан';
       }
     }
 
     async function joinPoll() {
       const code = document.getElementById('joinCode').value.trim().toUpperCase();
-      if (code.length !== 6) { alert('Введи 6-значный код!'); return; }
+      if (code.length !== 6) { alert('Рамзи 6 аломатӣ ворид кунед!'); return; }
       try {
         const res = await fetch(`${API}/polls/join/${code}`, { credentials: 'include' });
         const data = await res.json();
-        if (data.id) {
-          window.location.href = `/vote.html?id=${data.id}`;
-        } else {
-          alert('❌ ' + (data.error || 'Голосование не найдено'));
-        }
-      } catch (e) { alert('❌ Ошибка сети'); }
+        if (data.id) { window.location.href = `/vote.html?id=${data.id}`; }
+        else { alert('❌ ' + (data.error || 'Овоздиҳӣ ёфт нашуд')); }
+      } catch (e) { alert('❌ Хатои шабака'); }
     }
 
     async function observePoll() {
       const code = document.getElementById('observeCode').value.trim().toUpperCase();
-      if (code.length !== 6) { alert('Введи 6-значный код!'); return; }
+      if (code.length !== 6) { alert('Рамзи 6 аломатӣ ворид кунед!'); return; }
       try {
         const res = await fetch(`${API}/polls/join/${code}`, { credentials: 'include' });
         const data = await res.json();
-        if (data.id) {
-          window.location.href = `/vote.html?id=${data.id}&mode=observe`;
-        } else {
-          alert('❌ ' + (data.error || 'Голосование не найдено'));
-        }
-      } catch (e) { alert('❌ Ошибка сети'); }
+        if (data.id) { window.location.href = `/vote.html?id=${data.id}&mode=observe`; }
+        else { alert('❌ ' + (data.error || 'Овоздиҳӣ ёфт нашуд')); }
+      } catch (e) { alert('❌ Хатои шабака'); }
     }
 
     async function loadPolls() {
@@ -248,7 +277,7 @@
         allPolls = await res.json();
         renderPolls();
       } catch (e) {
-        document.getElementById('pollsList').innerHTML = '<p class="empty-text">Ошибка загрузки</p>';
+        document.getElementById('pollsList').innerHTML = '<p class="empty-text">Хатои бор кардан</p>';
       }
     }
 
@@ -260,7 +289,7 @@
       const filtered = allPolls.filter(p => currentTab === 'active' ? !p.closed : p.closed);
 
       if (filtered.length === 0) {
-        list.innerHTML = `<p class="empty-text">${currentTab === 'active' ? 'Нет активных голосований' : 'Архив пуст'}</p>`;
+        list.innerHTML = `<p class="empty-text">${currentTab === 'active' ? 'Овоздиҳии фаъол нест' : 'Бойгонӣ холӣ аст'}</p>`;
         return;
       }
 
@@ -272,12 +301,12 @@
           <div class="poll-item-info">
             <span class="poll-code">${poll.code}</span>
             <span class="poll-question">${escapeHtml(poll.question)}</span>
-            <span class="poll-votes">${poll.total_votes} голосов</span>
-            <span class="poll-status ${poll.closed ? 'closed' : 'active'}">${poll.closed ? 'Закрыто' : 'Активно'}</span>
+            <span class="poll-votes">${poll.total_votes} овоз</span>
+            <span class="poll-status ${poll.closed ? 'closed' : 'active'}">${poll.closed ? 'Пӯшида' : 'Фаъол'}</span>
           </div>
           <div class="poll-item-actions">
-            <button class="btn-view" onclick="window.location.href='/vote.html?id=${poll.id}'">Смотреть</button>
-            <button class="btn-csv" onclick="exportCSV(${poll.id})">📥 CSV</button>
+            <button class="btn-view" onclick="window.location.href='/vote.html?id=${poll.id}'">Дидан</button>
+            <button class="btn-csv" onclick="exportCSV(${poll.id})">📥</button>
             <button class="btn-delete" onclick="deletePoll(${poll.id}, '${escapeHtml(poll.question)}')">🗑️</button>
           </div>
         `;
@@ -286,29 +315,29 @@
     }
 
     async function deletePoll(pollId, question) {
-      if (!confirm(`Удалить голосование?\n"${question}"\n\nЭто действие нельзя отменить!`)) return;
+      if (!confirm(`Овоздиҳиро нест кунем?\n"${question}"`)) return;
       try {
         const res = await fetch(`${API}/polls/${pollId}/delete`, { method: 'DELETE', credentials: 'include' });
         const data = await res.json();
         if (data.success) { allPolls = allPolls.filter(p => p.id !== pollId); renderPolls(); }
-        else { alert('❌ ' + (data.error || 'Ошибка')); }
-      } catch (e) { alert('❌ Ошибка сети'); }
+        else { alert('❌ ' + (data.error || 'Хато')); }
+      } catch (e) { alert('❌ Хатои шабака'); }
     }
 
     function exportCSV(pollId) {
       const poll = allPolls.find(p => p.id === pollId);
       if (!poll) return;
       const total = poll.total_votes || 0;
-      let csv = 'Вариант,Голоса,Процент\n';
+      let csv = 'Вариант,Овозҳо,Фоиз\n';
       poll.options.forEach(opt => {
         const percent = total > 0 ? Math.round((opt.vote_count / total) * 100) : 0;
         csv += `"${opt.text.replace(/"/g, '""')}",${opt.vote_count},${percent}%\n`;
       });
-      csv += `\nВсего голосов,${total}\nВопрос,"${poll.question.replace(/"/g, '""')}"\nКод,${poll.code}\n`;
+      csv += `\nҲамагӣ,${total}\n`;
       const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `sv_results_${poll.code}.csv`; a.click();
+      a.href = url; a.download = `sv_${poll.code}.csv`; a.click();
       URL.revokeObjectURL(url);
     }
 
@@ -324,7 +353,7 @@
 
     function addOption() {
       const count = document.querySelectorAll('.option-input').length;
-      if (count >= 10) { alert('Максимум 10 вариантов!'); return; }
+      if (count >= 10) { alert('Ҳадди аксар 10 вариант!'); return; }
       addOptionInput(count);
     }
 
