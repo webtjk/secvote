@@ -9,7 +9,7 @@ A secure and anonymous voting platform built with Firebase.
 - 🔑 Poll access via unique codes
 - 👁️ Observer mode (view without voting)
 - 📥 CSV export of results
-- 🛡️ reCAPTCHA v3 protection
+  
 
 ## 🛠️ Tech Stack
 
