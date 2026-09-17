@@ -4,41 +4,40 @@
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
+  background: var(--bg);
 }
 
 .state-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  color: var(--gray-muted);
-  font-size: 16px;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 15px;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--card-border);
-  border-top-color: var(--blue-light);
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .vote-box {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 24px;
-  padding: 40px;
-  max-width: 600px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 36px;
+  max-width: 580px;
   width: 100%;
-  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .vote-header {
@@ -50,97 +49,81 @@
 }
 
 .vote-badge {
-  background: rgba(37,99,235,0.2);
-  border: 1px solid rgba(96,165,250,0.3);
-  color: var(--blue-glow);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
+  background: rgba(26,86,219,0.1);
+  border: 1px solid rgba(26,86,219,0.2);
+  color: var(--primary);
+  padding: 5px 12px;
+  border-radius: 50px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .vote-code {
-  color: var(--gray-muted);
-  font-size: 14px;
-  letter-spacing: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 1.5px;
   font-weight: 600;
 }
 
 .vote-question {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
-  line-height: 1.3;
+  color: var(--dark);
+  line-height: 1.35;
 }
 
 /* OPTIONS */
-.options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.options-list { display: flex; flex-direction: column; gap: 10px; }
 
 .option-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--card-border);
-  border-radius: 14px;
-  padding: 16px 20px;
+  gap: 12px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 15px;
+  color: var(--text);
 }
 
-.option-item:hover {
-  border-color: var(--blue-light);
-  background: rgba(59,130,246,0.05);
-}
-
-.option-item.selected {
-  border-color: var(--blue-bright);
-  background: rgba(37,99,235,0.1);
-}
+.option-item:hover { border-color: var(--primary); background: rgba(26,86,219,0.03); }
+.option-item.selected { border-color: var(--primary); background: rgba(26,86,219,0.06); }
 
 .option-radio {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid var(--gray-muted);
+  border: 2px solid var(--border);
   flex-shrink: 0;
   transition: all 0.2s;
 }
 
 .option-radio.checked {
-  border-color: var(--blue-bright);
-  background: var(--blue-bright);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.3);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26,86,219,0.15);
 }
 
 .btn-vote {
   width: 100%;
-  padding: 16px;
-  font-size: 16px;
+  padding: 14px;
+  font-size: 15px;
+  border-radius: 10px;
 }
 
 .vote-note {
   text-align: center;
-  font-size: 13px;
-  color: var(--gray-muted);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* RESULTS */
-.results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.results-list { display: flex; flex-direction: column; gap: 14px; }
 
-.result-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.result-item { display: flex; flex-direction: column; gap: 6px; }
 
 .result-top {
   display: flex;
@@ -148,96 +131,60 @@
   align-items: center;
 }
 
-.result-option {
-  font-size: 15px;
-  font-weight: 600;
-}
+.result-option { font-size: 14px; font-weight: 600; color: var(--dark); }
 
 .result-percent {
   font-size: 20px;
   font-weight: 800;
-  color: var(--blue-glow);
+  color: var(--primary);
 }
 
 .result-bar-bg {
-  height: 10px;
-  background: rgba(255,255,255,0.08);
+  height: 8px;
+  background: var(--bg);
   border-radius: 10px;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .result-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--blue-bright), var(--blue-glow));
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
   border-radius: 10px;
   transition: width 0.8s ease;
 }
 
-.result-votes {
-  font-size: 12px;
-  color: var(--gray-muted);
-}
+.result-votes { font-size: 12px; color: var(--muted); }
 
 .results-total {
   text-align: center;
-  color: var(--gray-muted);
-  font-size: 14px;
+  color: var(--muted);
+  font-size: 13px;
   padding-top: 8px;
-  border-top: 1px solid var(--card-border);
+  border-top: 1px solid var(--border);
 }
 
 .results-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-.btn-logout {
-  background: transparent;
-  border: 1px solid var(--card-border);
-  color: var(--gray-muted);
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.btn-logout:hover {
-  color: var(--white);
-  border-color: var(--blue-light);
-}
-
-/* === LIVE DOT === */
-.live-dot {
-  width: 8px;
-  height: 8px;
-  background: #4ade80;
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
-  flex-shrink: 0;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
-}
-
-/* === ЖИВЫЕ РЕЗУЛЬТАТЫ === */
+/* LIVE */
 .live-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--gray-muted);
+  font-size: 12px;
+  color: var(--muted);
   justify-content: center;
 }
 
 .live-dot {
-  width: 8px;
-  height: 8px;
-  background: #22c55e;
+  width: 7px;
+  height: 7px;
+  background: #059669;
   border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
@@ -247,63 +194,61 @@
   50% { opacity: 0.5; transform: scale(1.3); }
 }
 
-/* === ЗАКРЫТЬ ГОЛОСОВАНИЕ === */
+/* CLOSED BANNER */
 .closed-banner {
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.3);
-  color: #f87171;
+  background: rgba(220,38,38,0.08);
+  border: 1px solid rgba(220,38,38,0.2);
+  color: #dc2626;
   padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
   text-align: center;
 }
 
+/* CLOSE BUTTON */
 .btn-close-poll {
   width: 100%;
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.4);
-  color: #f87171;
-  padding: 12px;
-  border-radius: 12px;
-  font-size: 14px;
+  background: rgba(220,38,38,0.08);
+  border: 1px solid rgba(220,38,38,0.3);
+  color: #dc2626;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.btn-close-poll:hover {
-  background: rgba(239,68,68,0.2);
-}
+.btn-close-poll:hover { background: rgba(220,38,38,0.12); }
 
 .btn-close-poll.btn-open {
-  background: rgba(34,197,94,0.1);
-  border-color: rgba(34,197,94,0.4);
-  color: #4ade80;
+  background: rgba(5,150,105,0.08);
+  border-color: rgba(5,150,105,0.3);
+  color: #059669;
 }
 
-.btn-close-poll.btn-open:hover {
-  background: rgba(34,197,94,0.2);
-}
+.btn-close-poll.btn-open:hover { background: rgba(5,150,105,0.12); }
 
-/* === НАБЛЮДАТЕЛЬ === */
+/* OBSERVER BADGE */
 .observer-badge {
-  background: rgba(168,85,247,0.2);
-  border: 1px solid rgba(168,85,247,0.4);
-  color: #c084fc;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
+  background: rgba(124,58,237,0.1);
+  border: 1px solid rgba(124,58,237,0.3);
+  color: #7c3aed;
+  padding: 5px 12px;
+  border-radius: 50px;
+  font-size: 12px;
   font-weight: 600;
 }
 
-/* === CSV КНОПКА === */
+/* CSV BUTTON */
 .btn-csv-vote {
   background: transparent;
-  border: 1px solid var(--blue-glow);
-  color: var(--blue-glow);
-  padding: 12px 20px;
-  border-radius: 50px;
-  font-size: 14px;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -312,6 +257,13 @@
   gap: 6px;
 }
 
-.btn-csv-vote:hover {
-  background: rgba(96,165,250,0.1);
+.btn-csv-vote:hover { background: var(--primary); color: white; }
+
+/* RESPONSIVE */
+@media (max-width: 600px) {
+  .vote-box { padding: 20px; }
+  .vote-question { font-size: 18px; }
+  .dashboard-cards { flex-direction: column; }
+  .poll-item { flex-direction: column; align-items: flex-start; }
+  .features { flex-direction: column; align-items: center; }
 }
