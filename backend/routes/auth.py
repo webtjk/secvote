@@ -47,6 +47,7 @@ def google_login():
         user = cur.fetchone()
         conn.commit()
 
+    session.permanent = True
     session['user_id'] = user['id']
     session['user_name'] = user['name']
     session['user_email'] = user['email']
@@ -67,7 +68,7 @@ def google_login():
 
 @auth_bp.route('/google/callback')
 def google_callback():
-    """Обработка OAuth redirect от Google (для мобильных устройств)"""
+    """OAuth redirect от Google — работает на мобильных"""
     code = request.args.get('code')
     error = request.args.get('error')
 
@@ -75,11 +76,13 @@ def google_callback():
         return redirect('/?error=cancelled')
 
     token_url = 'https://oauth2.googleapis.com/token'
+    redirect_uri = request.host_url.rstrip('/') + '/api/auth/google/callback'
+
     token_data = {
         'code': code,
         'client_id': os.getenv('GOOGLE_CLIENT_ID'),
         'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-        'redirect_uri': request.host_url.rstrip('/') + '/api/auth/google/callback',
+        'redirect_uri': redirect_uri,
         'grant_type': 'authorization_code',
     }
 
@@ -89,6 +92,7 @@ def google_callback():
         id_token = token_json.get('id_token')
 
         if not id_token:
+            print(f"Token error: {token_json}")
             return redirect('/?error=no_token')
 
         import base64, json as json_lib
@@ -116,6 +120,7 @@ def google_callback():
             user = cur.fetchone()
             conn.commit()
 
+        session.permanent = True
         session['user_id'] = user['id']
         session['user_name'] = user['name']
         session['user_email'] = user['email']

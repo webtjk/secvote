@@ -9,23 +9,27 @@ from database import init_db
 
 load_dotenv()
 
-# Путь к корню проекта (папка anonim)
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 app = Flask(__name__, static_folder=ROOT_DIR, static_url_path='')
 app.secret_key = os.getenv('SECRET_KEY', 'securevote_secret_2026')
 
+# Важно для Render: cookie через HTTPS
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://securevote-l5rf.onrender.com')
 CORS(app, supports_credentials=True, origins=[
+    FRONTEND_URL,
     "http://localhost:5000",
     "http://127.0.0.1:5000",
 ])
 
-# Регистрируем маршруты
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(polls_bp, url_prefix='/api/polls')
 app.register_blueprint(votes_bp, url_prefix='/api/votes')
 
-# Раздаём HTML файлы из корня проекта
 @app.route('/')
 def index():
     return send_from_directory(ROOT_DIR, 'index.html')
@@ -38,7 +42,6 @@ def dashboard():
 def vote():
     return send_from_directory(ROOT_DIR, 'vote.html')
 
-# CSS файлы
 @app.route('/style.css')
 def style():
     return send_from_directory(ROOT_DIR, 'style.css')
@@ -51,11 +54,10 @@ def dashboard_css():
 def vote_css():
     return send_from_directory(ROOT_DIR, 'vote.css')
 
-# Проверка
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'message': 'SecureVote API работает!'})
+    return jsonify({'status': 'ok', 'message': 'SecureVote работает!'})
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)

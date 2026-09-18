@@ -1,394 +1,416 @@
 <!DOCTYPE html>
-<html lang="tg">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SV — Дашборд</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>SecureVote — Кабинет</title>
   <style>
-    #loader {
-      position: fixed; inset: 0;
-      background: #0f172a;
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0f172a; --bg2: #1e293b; --bg3: #0f1f3d;
+      --text: #f1f5f9; --text2: #94a3b8;
+      --primary: #2563eb; --primary-d: #1d4ed8;
+      --border: rgba(255,255,255,0.08);
+      --card: rgba(30,41,59,0.85);
+      --radius: 16px; --radius-s: 10px;
     }
-    .loader-inner { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-    .loader-logo {
-      width: 64px; height: 64px;
-      background: linear-gradient(135deg, #2563eb, #3b82f6);
-      border-radius: 16px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 900; color: white;
-      box-shadow: 0 8px 24px rgba(37,99,235,0.5);
-      animation: pulse-logo 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse-logo {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-    .loader-text { color: #94a3b8; font-size: 14px; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    select {
-      background: var(--bg);
-      border: 1.5px solid var(--border);
-      color: var(--text);
-      padding: 11px 14px;
-      border-radius: var(--radius-sm);
-      font-size: 14px;
-      outline: none;
-      width: 100%;
-      cursor: pointer;
+    /* LOADER */
+    #loader {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999;
     }
-    select:focus { border-color: var(--primary); }
-    select option { background: #1e293b; }
+    .ll { width: 60px; height: 60px; background: linear-gradient(135deg,#2563eb,#3b82f6); border-radius: 15px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; color: #fff;
+      animation: pp 1.5s ease-in-out infinite; margin-bottom: 16px; }
+    @keyframes pp { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+    .ld { display: flex; gap: 5px; }
+    .ld span { width: 7px; height: 7px; background: #2563eb; border-radius: 50%; animation: dd 1.2s ease-in-out infinite; }
+    .ld span:nth-child(2){animation-delay:.2s} .ld span:nth-child(3){animation-delay:.4s}
+    @keyframes dd { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+
+    /* HEADER */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px; height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 34px; height: 34px; background: linear-gradient(135deg,#2563eb,#3b82f6);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 900; color: #fff;
+    }
+    .logo-name { font-size: 16px; font-weight: 700; }
+    .user-bar { display: flex; align-items: center; gap: 10px; }
+    .user-photo { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--primary); display: none; }
+    .user-name { font-size: 13px; color: var(--text2); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-out {
+      padding: 7px 14px; background: transparent;
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text2); font-size: 12px; cursor: pointer; transition: all .2s;
+    }
+    .btn-out:hover { border-color: #ef4444; color: #ef4444; }
+
+    /* MAIN */
+    .main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    .welcome { margin-bottom: 24px; }
+    .welcome h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .welcome p { font-size: 13px; color: var(--text2); }
+
+    /* ACTION CARDS */
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .action-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 16px;
+      cursor: pointer; transition: all .2s; text-align: left;
+    }
+    .action-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .action-card.accent { background: linear-gradient(135deg, rgba(37,99,235,.25), rgba(59,130,246,.15)); border-color: rgba(37,99,235,.4); }
+    .ac-icon { font-size: 24px; margin-bottom: 10px; }
+    .ac-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .ac-desc { font-size: 12px; color: var(--text2); line-height: 1.4; }
+
+    /* FORMS */
+    .form-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 16px; margin-bottom: 20px;
+    }
+    .form-box h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .fg { margin-bottom: 14px; }
+    .fg label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .fg input, .fg select {
+      width: 100%; padding: 11px 14px;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: 14px;
+      outline: none; transition: border-color .2s;
+    }
+    .fg input:focus, .fg select:focus { border-color: var(--primary); }
+    .fg select { cursor: pointer; }
+    .fg select option { background: #1e293b; }
+    .option-inp {
+      width: 100%; padding: 10px 14px; margin-bottom: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: 14px; outline: none;
+      transition: border-color .2s;
+    }
+    .option-inp:focus { border-color: var(--primary); }
+    .btn-add-opt {
+      padding: 9px 16px; background: rgba(37,99,235,.15);
+      border: 1px dashed rgba(37,99,235,.4); border-radius: var(--radius-s);
+      color: #60a5fa; font-size: 13px; cursor: pointer; width: 100%; transition: all .2s;
+    }
+    .btn-add-opt:hover { background: rgba(37,99,235,.25); }
+    .form-btns { display: flex; gap: 10px; margin-top: 16px; }
+    .btn-primary {
+      flex: 1; padding: 12px; background: var(--primary); color: #fff;
+      border: none; border-radius: var(--radius-s); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .2s;
+    }
+    .btn-primary:hover { background: var(--primary-d); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-cancel {
+      padding: 12px 20px; background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius-s);
+      color: var(--text2); font-size: 14px; cursor: pointer; transition: all .2s;
+    }
+    .btn-cancel:hover { border-color: var(--text2); }
+    .code-inp {
+      text-transform: uppercase; letter-spacing: 6px;
+      font-size: 24px; font-weight: 800; text-align: center;
+    }
+
+    /* MY POLLS */
+    .polls-section h2 { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .tab {
+      padding: 8px 16px; border-radius: 8px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text2); font-size: 13px; cursor: pointer; transition: all .2s;
+    }
+    .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .poll-item {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px;
+      margin-bottom: 10px; transition: border-color .2s;
+    }
+    .poll-item:hover { border-color: rgba(37,99,235,.4); }
+    .pi-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+    .pi-code {
+      background: rgba(37,99,235,.2); color: #60a5fa;
+      font-size: 11px; font-weight: 700; padding: 3px 9px;
+      border-radius: 6px; font-family: monospace; letter-spacing: 1px;
+    }
+    .pi-status {
+      font-size: 11px; padding: 3px 9px; border-radius: 6px; font-weight: 600;
+    }
+    .pi-status.open { background: rgba(16,185,129,.15); color: #34d399; }
+    .pi-status.closed { background: rgba(100,116,139,.15); color: #94a3b8; }
+    .pi-q { font-size: 14px; font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+    .pi-votes { font-size: 12px; color: var(--text2); }
+    .pi-btns { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-sm {
+      padding: 7px 14px; border-radius: 8px; font-size: 12px;
+      font-weight: 600; cursor: pointer; border: none; transition: all .2s;
+    }
+    .btn-view { background: rgba(37,99,235,.2); color: #60a5fa; }
+    .btn-view:hover { background: rgba(37,99,235,.35); }
+    .btn-csv { background: rgba(16,185,129,.15); color: #34d399; }
+    .btn-csv:hover { background: rgba(16,185,129,.25); }
+    .btn-del { background: rgba(239,68,68,.12); color: #f87171; }
+    .btn-del:hover { background: rgba(239,68,68,.25); }
+    .empty { text-align: center; color: var(--text2); font-size: 14px; padding: 32px 0; }
+
+    /* MOBILE */
+    @media (max-width: 480px) {
+      .actions { grid-template-columns: 1fr; }
+      .user-name { display: none; }
+      .welcome h1 { font-size: 18px; }
+    }
   </style>
 </head>
 <body>
 
-  <div id="loader">
-    <div class="loader-inner">
-      <div class="loader-logo">SV</div>
-      <div class="loader-text">Бор мешавад...</div>
+<div id="loader">
+  <div class="ll">SV</div>
+  <div class="ld"><span></span><span></span><span></span></div>
+</div>
+
+<div id="pg" style="display:none">
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">SV</div>
+      <span class="logo-name">SecureVote</span>
+    </div>
+    <div class="user-bar">
+      <img id="uPhoto" class="user-photo" src="" alt="" />
+      <span id="uName" class="user-name"></span>
+      <button class="btn-out" id="btnOut">Выйти</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="welcome">
+      <h1>Привет, <span id="wName" style="color:#3b82f6"></span> 👋</h1>
+      <p>Что хотите сделать?</p>
+    </div>
+
+    <div class="actions">
+      <div class="action-card accent" onclick="showForm('create')">
+        <div class="ac-icon">🗳️</div>
+        <div class="ac-title">Создать голосование</div>
+        <div class="ac-desc">Задайте вопрос и поделитесь кодом</div>
+      </div>
+      <div class="action-card" onclick="showForm('join')">
+        <div class="ac-icon">🔗</div>
+        <div class="ac-title">Войти по коду</div>
+        <div class="ac-desc">Введите код и проголосуйте</div>
+      </div>
+      <div class="action-card" onclick="showForm('observe')">
+        <div class="ac-icon">👁️</div>
+        <div class="ac-title">Наблюдатель</div>
+        <div class="ac-desc">Смотрите результаты без голосования</div>
+      </div>
+    </div>
+
+    <!-- CREATE -->
+    <div class="form-box" id="fCreate" style="display:none">
+      <h2>📝 Новое голосование</h2>
+      <div class="fg"><label>Вопрос</label><input type="text" id="pollQ" placeholder="Введите вопрос..." maxlength="300" /></div>
+      <div class="fg">
+        <label>Варианты ответа</label>
+        <div id="optList"></div>
+        <button class="btn-add-opt" onclick="addOpt()">+ Добавить вариант</button>
+      </div>
+      <div class="fg">
+        <label>Доступ</label>
+        <select id="accType">
+          <option value="open">🔓 Открытое — все с кодом</option>
+          <option value="domain">📧 По домену email</option>
+        </select>
+      </div>
+      <div class="fg" id="domFg" style="display:none">
+        <label>Домен email</label>
+        <input type="text" id="domainInp" placeholder="например: company.com" />
+      </div>
+      <div class="form-btns">
+        <button class="btn-cancel" onclick="hideAll()">Отмена</button>
+        <button class="btn-primary" id="btnCreate" onclick="createPoll()">Создать</button>
+      </div>
+    </div>
+
+    <!-- JOIN -->
+    <div class="form-box" id="fJoin" style="display:none">
+      <h2>🔗 Войти по коду</h2>
+      <div class="fg"><label>Код голосования</label><input type="text" id="joinC" class="code-inp" placeholder="ABC123" maxlength="6" /></div>
+      <div class="form-btns">
+        <button class="btn-cancel" onclick="hideAll()">Отмена</button>
+        <button class="btn-primary" onclick="joinPoll()">Войти</button>
+      </div>
+    </div>
+
+    <!-- OBSERVE -->
+    <div class="form-box" id="fObserve" style="display:none">
+      <h2>👁️ Наблюдатель</h2>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Смотрите результаты без права голоса</p>
+      <div class="fg"><label>Код голосования</label><input type="text" id="obsC" class="code-inp" placeholder="ABC123" maxlength="6" /></div>
+      <div class="form-btns">
+        <button class="btn-cancel" onclick="hideAll()">Отмена</button>
+        <button class="btn-primary" onclick="observePoll()">Смотреть</button>
+      </div>
+    </div>
+
+    <!-- MY POLLS -->
+    <div class="polls-section">
+      <h2>Мои голосования</h2>
+      <div class="tabs">
+        <button class="tab active" id="tActive" onclick="setTab('active')">🟢 Активные</button>
+        <button class="tab" id="tClosed" onclick="setTab('closed')">🔒 Архив</button>
+      </div>
+      <div id="pollsList"><p class="empty">Загружаем...</p></div>
     </div>
   </div>
+</div>
 
-  <div class="page" id="mainContent" style="display:none">
+<script>
+  const API = window.location.origin + '/api';
+  let user = null, polls = [], tab = 'active';
 
-    <header class="header">
-      <div class="logo">
-        <div class="logo-icon">SV</div>
-        <span class="logo-text">SecureVote</span>
-      </div>
-      <div class="user-info">
-        <img id="userPhoto" src="" alt="" class="user-photo" style="display:none" />
-        <span id="userName" class="user-name"></span>
-        <button class="btn-logout" id="logoutBtn">Баромадан</button>
-      </div>
-    </header>
+  async function init() {
+    try {
+      const r = await fetch(`${API}/auth/me`, { credentials: 'include' });
+      if (!r.ok) { window.location.replace('/'); return; }
+      user = await r.json();
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('pg').style.display = 'block';
+      const first = (user.name || '').split(' ')[0] || 'друг';
+      document.getElementById('uName').textContent = user.name || user.email;
+      document.getElementById('wName').textContent = first;
+      if (user.avatar) { const p = document.getElementById('uPhoto'); p.src = user.avatar; p.style.display = 'block'; }
+      addOptInput(0); addOptInput(1);
+      loadPolls();
+    } catch(e) { window.location.replace('/'); }
+  }
 
-    <main class="dashboard">
+  document.getElementById('btnOut').onclick = async () => {
+    await fetch(`${API}/auth/logout`, { credentials: 'include' });
+    window.location.replace('/');
+  };
 
-      <div class="dashboard-welcome">
-        <h1>Салом, <span id="welcomeName" style="color:#3b82f6"></span>! 👋</h1>
-        <p>Чӣ мехоҳед кунед?</p>
-      </div>
+  document.getElementById('accType').onchange = function() {
+    document.getElementById('domFg').style.display = this.value === 'domain' ? 'block' : 'none';
+  };
 
-      <!-- КАРТОЧКИ -->
-      <div class="dashboard-cards">
-        <div class="dash-card">
-          <div class="dash-card-icon">🗳️</div>
-          <h2>Овоздиҳӣ созед</h2>
-          <p>Савол гузоред, вариантҳо илова кунед ва рамзро мубодила кунед</p>
-          <button class="btn-primary" onclick="showCreate()">Сохтан</button>
-        </div>
-        <div class="dash-card">
-          <div class="dash-card-icon">🔗</div>
-          <h2>Бо рамз ворид шавед</h2>
-          <p>Рамзеро, ки фиристодаанд, ворид кунед ва овоз диҳед</p>
-          <button class="btn-secondary" onclick="showJoin()">Ворид шудан</button>
-        </div>
-        <div class="dash-card">
-          <div class="dash-card-icon">👁️</div>
-          <h2>Нозир</h2>
-          <p>Натиҷаро дар вақти воқеӣ бубинед бе ҳуқуқи овоздиҳӣ</p>
-          <button class="btn-secondary" onclick="showObserve()">Тамошо кардан</button>
-        </div>
-      </div>
-
-      <!-- ФОРМА СОЗДАНИЯ -->
-      <div class="form-box" id="createForm" style="display:none">
-        <h2>📝 Овоздиҳии нав</h2>
-        <div class="form-group">
-          <label>Савол</label>
-          <input type="text" id="pollQuestion" placeholder="Масалан: Рӯзи вохӯрӣ кадом аст?" maxlength="300" />
-        </div>
-        <div class="form-group">
-          <label>Вариантҳо</label>
-          <div id="optionsList"></div>
-          <button class="btn-add" onclick="addOption()">+ Вариант илова кунед</button>
-        </div>
-        <div class="form-group">
-          <label>Намуди дастрасӣ</label>
-          <select id="accessType">
-            <option value="open">🔓 Кушода — ҳама бо рамз</option>
-            <option value="domain">📧 Бо домени email</option>
-          </select>
-        </div>
-        <div class="form-group" id="domainGroup" style="display:none">
-          <label>Домени email</label>
-          <input type="text" id="allowedDomain" placeholder="масалан: company.com" />
-        </div>
-        <div class="form-actions">
-          <button class="btn-cancel" onclick="hideAll()">Бекор кардан</button>
-          <button class="btn-primary" id="createBtn" onclick="createPoll()" style="width:auto; padding:11px 24px;">Сохтан</button>
-        </div>
-      </div>
-
-      <!-- ФОРМА КОДА -->
-      <div class="form-box" id="joinForm" style="display:none">
-        <h2>🔗 Бо рамз ворид шавед</h2>
-        <div class="form-group">
-          <label>Рамзи овоздиҳӣ</label>
-          <input type="text" id="joinCode" placeholder="ABC123" maxlength="6"
-            style="text-transform:uppercase; letter-spacing:6px; font-size:26px; text-align:center; font-weight:800;" />
-        </div>
-        <div class="form-actions">
-          <button class="btn-cancel" onclick="hideAll()">Бекор кардан</button>
-          <button class="btn-primary" onclick="joinPoll()" style="width:auto; padding:11px 24px;">Ворид шудан</button>
-        </div>
-      </div>
-
-      <!-- ФОРМА НАБЛЮДАТЕЛЯ -->
-      <div class="form-box" id="observeForm" style="display:none">
-        <h2>👁️ Нозир</h2>
-        <p style="color:var(--text2); font-size:13px; margin-bottom:16px;">Натиҷаро мебинед, аммо овоз дода наметавонед.</p>
-        <div class="form-group">
-          <label>Рамзи овоздиҳӣ</label>
-          <input type="text" id="observeCode" placeholder="ABC123" maxlength="6"
-            style="text-transform:uppercase; letter-spacing:6px; font-size:26px; text-align:center; font-weight:800;" />
-        </div>
-        <div class="form-actions">
-          <button class="btn-cancel" onclick="hideAll()">Бекор кардан</button>
-          <button class="btn-primary" onclick="observePoll()" style="width:auto; padding:11px 24px;">Тамошо кардан</button>
-        </div>
-      </div>
-
-      <!-- МОИ ГОЛОСОВАНИЯ -->
-      <div class="my-polls">
-        <h2>Овоздиҳиҳои ман</h2>
-        <div class="tabs">
-          <button class="tab active" id="tabActive" onclick="switchTab('active')">🟢 Фаъол</button>
-          <button class="tab" id="tabClosed" onclick="switchTab('closed')">🔒 Бойгонӣ</button>
-        </div>
-        <div id="pollsList" class="polls-list">
-          <p class="empty-text">Бор мешавад...</p>
-        </div>
-      </div>
-
-    </main>
-  </div>
-
-  <script>
-    const API = window.location.origin + '/api';
-    let currentUser = null;
-    let allPolls = [];
-    let currentTab = 'active';
-
-    async function init() {
-      try {
-        const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
-        if (!res.ok) { window.location.replace('/'); return; }
-        currentUser = await res.json();
-
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-
-        const firstName = (currentUser.name || '').split(' ')[0] || 'Дӯст';
-        document.getElementById('userName').textContent = currentUser.name || currentUser.email;
-        document.getElementById('welcomeName').textContent = firstName;
-
-        if (currentUser.avatar) {
-          const photo = document.getElementById('userPhoto');
-          photo.src = currentUser.avatar;
-          photo.style.display = 'block';
-        }
-
-        addOptionInput(0);
-        addOptionInput(1);
-        loadPolls();
-      } catch (e) { window.location.replace('/'); }
-    }
-
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await fetch(`${API}/auth/logout`, { credentials: 'include' });
-      window.location.replace('/');
-    });
-
-    document.getElementById('accessType').addEventListener('change', function() {
-      document.getElementById('domainGroup').style.display = this.value === 'domain' ? 'block' : 'none';
-    });
-
-    async function createPoll() {
-      const question = document.getElementById('pollQuestion').value.trim();
-      const inputs = document.querySelectorAll('.option-input');
-      const options = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
-
-      if (!question) { alert('Саволро ворид кунед!'); return; }
-      if (options.length < 2) { alert('Ҳадди ақал 2 вариант илова кунед!'); return; }
-      if (options.length > 10) { alert('Ҳадди аксар 10 вариант!'); return; }
-
-      const btn = document.getElementById('createBtn');
-      btn.disabled = true;
-      btn.textContent = 'Сохта истодем...';
-
-      try {
-        const res = await fetch(`${API}/polls/create`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            question, options,
-            access_type: document.getElementById('accessType').value,
-            allowed_domain: document.getElementById('allowedDomain').value.trim() || null,
-          }),
-        });
-
-        const data = await res.json();
-        if (data.success) {
-          alert(`✅ Овоздиҳӣ сохта шуд!\nРамз: ${data.code}\nРамзро бо иштирокчиён мубодила кунед!`);
-          hideAll();
-          loadPolls();
-        } else {
-          alert('❌ ' + (data.error || 'Хато'));
-        }
-      } catch (e) {
-        alert('❌ Хатои шабака');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Сохтан';
-      }
-    }
-
-    async function joinPoll() {
-      const code = document.getElementById('joinCode').value.trim().toUpperCase();
-      if (code.length !== 6) { alert('Рамзи 6 аломатӣ ворид кунед!'); return; }
-      try {
-        const res = await fetch(`${API}/polls/join/${code}`, { credentials: 'include' });
-        const data = await res.json();
-        if (data.id) { window.location.href = `/vote.html?id=${data.id}`; }
-        else { alert('❌ ' + (data.error || 'Овоздиҳӣ ёфт нашуд')); }
-      } catch (e) { alert('❌ Хатои шабака'); }
-    }
-
-    async function observePoll() {
-      const code = document.getElementById('observeCode').value.trim().toUpperCase();
-      if (code.length !== 6) { alert('Рамзи 6 аломатӣ ворид кунед!'); return; }
-      try {
-        const res = await fetch(`${API}/polls/join/${code}`, { credentials: 'include' });
-        const data = await res.json();
-        if (data.id) { window.location.href = `/vote.html?id=${data.id}&mode=observe`; }
-        else { alert('❌ ' + (data.error || 'Овоздиҳӣ ёфт нашуд')); }
-      } catch (e) { alert('❌ Хатои шабака'); }
-    }
-
-    async function loadPolls() {
-      try {
-        const res = await fetch(`${API}/polls/my`, { credentials: 'include' });
-        allPolls = await res.json();
-        renderPolls();
-      } catch (e) {
-        document.getElementById('pollsList').innerHTML = '<p class="empty-text">Хатои бор кардан</p>';
-      }
-    }
-
-    function renderPolls() {
-      const list = document.getElementById('pollsList');
-      document.getElementById('tabActive').classList.toggle('active', currentTab === 'active');
-      document.getElementById('tabClosed').classList.toggle('active', currentTab === 'closed');
-
-      const filtered = allPolls.filter(p => currentTab === 'active' ? !p.closed : p.closed);
-
-      if (filtered.length === 0) {
-        list.innerHTML = `<p class="empty-text">${currentTab === 'active' ? 'Овоздиҳии фаъол нест' : 'Бойгонӣ холӣ аст'}</p>`;
-        return;
-      }
-
-      list.innerHTML = '';
-      filtered.forEach(poll => {
-        const div = document.createElement('div');
-        div.className = 'poll-item';
-        div.innerHTML = `
-          <div class="poll-item-info">
-            <span class="poll-code">${poll.code}</span>
-            <span class="poll-question">${escapeHtml(poll.question)}</span>
-            <span class="poll-votes">${poll.total_votes} овоз</span>
-            <span class="poll-status ${poll.closed ? 'closed' : 'active'}">${poll.closed ? 'Пӯшида' : 'Фаъол'}</span>
-          </div>
-          <div class="poll-item-actions">
-            <button class="btn-view" onclick="window.location.href='/vote.html?id=${poll.id}'">Дидан</button>
-            <button class="btn-csv" onclick="exportCSV(${poll.id})">📥</button>
-            <button class="btn-delete" onclick="deletePoll(${poll.id}, '${escapeHtml(poll.question)}')">🗑️</button>
-          </div>
-        `;
-        list.appendChild(div);
+  async function createPoll() {
+    const q = document.getElementById('pollQ').value.trim();
+    const opts = Array.from(document.querySelectorAll('.option-inp')).map(i => i.value.trim()).filter(v => v);
+    if (!q) { alert('Введите вопрос!'); return; }
+    if (opts.length < 2) { alert('Минимум 2 варианта!'); return; }
+    const btn = document.getElementById('btnCreate');
+    btn.disabled = true; btn.textContent = 'Создаём...';
+    try {
+      const r = await fetch(`${API}/polls/create`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, options: opts, access_type: document.getElementById('accType').value, allowed_domain: document.getElementById('domainInp').value.trim() || null }),
       });
-    }
+      const d = await r.json();
+      if (d.success) {
+        alert(`✅ Голосование создано!\nКод: ${d.code}\nПоделитесь кодом с участниками!`);
+        hideAll(); loadPolls();
+      } else { alert('❌ ' + (d.error || 'Ошибка')); }
+    } catch(e) { alert('❌ Ошибка сети'); }
+    finally { btn.disabled = false; btn.textContent = 'Создать'; }
+  }
 
-    async function deletePoll(pollId, question) {
-      if (!confirm(`Овоздиҳиро нест кунем?\n"${question}"`)) return;
-      try {
-        const res = await fetch(`${API}/polls/${pollId}/delete`, { method: 'DELETE', credentials: 'include' });
-        const data = await res.json();
-        if (data.success) { allPolls = allPolls.filter(p => p.id !== pollId); renderPolls(); }
-        else { alert('❌ ' + (data.error || 'Хато')); }
-      } catch (e) { alert('❌ Хатои шабака'); }
-    }
+  async function joinPoll() {
+    const c = document.getElementById('joinC').value.trim().toUpperCase();
+    if (c.length !== 6) { alert('Введите 6-значный код!'); return; }
+    try {
+      const r = await fetch(`${API}/polls/join/${c}`, { credentials: 'include' });
+      const d = await r.json();
+      if (d.id) window.location.href = `/vote.html?id=${d.id}`;
+      else alert('❌ ' + (d.error || 'Голосование не найдено'));
+    } catch(e) { alert('❌ Ошибка сети'); }
+  }
 
-    function exportCSV(pollId) {
-      const poll = allPolls.find(p => p.id === pollId);
-      if (!poll) return;
-      const total = poll.total_votes || 0;
-      let csv = 'Вариант,Овозҳо,Фоиз\n';
-      poll.options.forEach(opt => {
-        const percent = total > 0 ? Math.round((opt.vote_count / total) * 100) : 0;
-        csv += `"${opt.text.replace(/"/g, '""')}",${opt.vote_count},${percent}%\n`;
-      });
-      csv += `\nҲамагӣ,${total}\n`;
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `sv_${poll.code}.csv`; a.click();
-      URL.revokeObjectURL(url);
-    }
+  async function observePoll() {
+    const c = document.getElementById('obsC').value.trim().toUpperCase();
+    if (c.length !== 6) { alert('Введите 6-значный код!'); return; }
+    try {
+      const r = await fetch(`${API}/polls/join/${c}`, { credentials: 'include' });
+      const d = await r.json();
+      if (d.id) window.location.href = `/vote.html?id=${d.id}&mode=observe`;
+      else alert('❌ ' + (d.error || 'Голосование не найдено'));
+    } catch(e) { alert('❌ Ошибка сети'); }
+  }
 
-    function switchTab(tab) { currentTab = tab; renderPolls(); }
+  async function loadPolls() {
+    try {
+      const r = await fetch(`${API}/polls/my`, { credentials: 'include' });
+      polls = await r.json();
+      renderPolls();
+    } catch(e) { document.getElementById('pollsList').innerHTML = '<p class="empty">Ошибка загрузки</p>'; }
+  }
 
-    function addOptionInput(index) {
-      const list = document.getElementById('optionsList');
-      const input = document.createElement('input');
-      input.type = 'text'; input.className = 'option-input';
-      input.placeholder = `Вариант ${index + 1}`; input.maxLength = 200;
-      list.appendChild(input);
-    }
+  function renderPolls() {
+    document.getElementById('tActive').classList.toggle('active', tab === 'active');
+    document.getElementById('tClosed').classList.toggle('active', tab === 'closed');
+    const filtered = polls.filter(p => tab === 'active' ? !p.closed : p.closed);
+    const list = document.getElementById('pollsList');
+    if (!filtered.length) { list.innerHTML = `<p class="empty">${tab === 'active' ? 'Нет активных голосований' : 'Архив пуст'}</p>`; return; }
+    list.innerHTML = '';
+    filtered.forEach(p => {
+      const d = document.createElement('div'); d.className = 'poll-item';
+      d.innerHTML = `
+        <div class="pi-top">
+          <span class="pi-code">${p.code}</span>
+          <span class="pi-status ${p.closed ? 'closed' : 'open'}">${p.closed ? '🔒 Закрыто' : '🟢 Активно'}</span>
+        </div>
+        <div class="pi-q">${esc(p.question)}</div>
+        <div class="pi-votes">${p.total_votes} голосов</div>
+        <div class="pi-btns">
+          <button class="btn-sm btn-view" onclick="location.href='/vote.html?id=${p.id}'">Смотреть</button>
+          <button class="btn-sm btn-csv" onclick="exportCSV(${p.id})">📥 CSV</button>
+          <button class="btn-sm btn-del" onclick="delPoll(${p.id},'${esc(p.question)}')">🗑️</button>
+        </div>`;
+      list.appendChild(d);
+    });
+  }
 
-    function addOption() {
-      const count = document.querySelectorAll('.option-input').length;
-      if (count >= 10) { alert('Ҳадди аксар 10 вариант!'); return; }
-      addOptionInput(count);
-    }
+  async function delPoll(id, q) {
+    if (!confirm(`Удалить?\n"${q}"`)) return;
+    try {
+      const r = await fetch(`${API}/polls/${id}/delete`, { method: 'DELETE', credentials: 'include' });
+      const d = await r.json();
+      if (d.success) { polls = polls.filter(p => p.id !== id); renderPolls(); }
+      else alert('❌ ' + d.error);
+    } catch(e) { alert('❌ Ошибка сети'); }
+  }
 
-    function showCreate() {
-      document.getElementById('createForm').style.display = 'block';
-      document.getElementById('joinForm').style.display = 'none';
-      document.getElementById('observeForm').style.display = 'none';
-      document.getElementById('createForm').scrollIntoView({ behavior: 'smooth' });
-    }
+  function exportCSV(id) {
+    const p = polls.find(x => x.id === id); if (!p) return;
+    const total = p.total_votes || 0;
+    let csv = 'Вариант,Голоса,Процент\n';
+    p.options.forEach(o => { const pct = total > 0 ? Math.round(o.vote_count/total*100) : 0; csv += `"${o.text.replace(/"/g,'""')}",${o.vote_count},${pct}%\n`; });
+    csv += `\nВсего,${total}\n`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'}));
+    a.download = `sv_${p.code}.csv`; a.click();
+  }
 
-    function showJoin() {
-      document.getElementById('joinForm').style.display = 'block';
-      document.getElementById('createForm').style.display = 'none';
-      document.getElementById('observeForm').style.display = 'none';
-      document.getElementById('joinForm').scrollIntoView({ behavior: 'smooth' });
-    }
+  function setTab(t) { tab = t; renderPolls(); }
+  function addOptInput(i) { const inp = document.createElement('input'); inp.type='text'; inp.className='option-inp'; inp.placeholder=`Вариант ${i+1}`; inp.maxLength=200; document.getElementById('optList').appendChild(inp); }
+  function addOpt() { const n = document.querySelectorAll('.option-inp').length; if(n>=10){alert('Максимум 10!');return;} addOptInput(n); }
+  function showForm(t) { hideAll(); document.getElementById(t==='create'?'fCreate':t==='join'?'fJoin':'fObserve').style.display='block'; }
+  function hideAll() { ['fCreate','fJoin','fObserve'].forEach(id => document.getElementById(id).style.display='none'); }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    function showObserve() {
-      document.getElementById('observeForm').style.display = 'block';
-      document.getElementById('createForm').style.display = 'none';
-      document.getElementById('joinForm').style.display = 'none';
-      document.getElementById('observeForm').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function hideAll() {
-      document.getElementById('createForm').style.display = 'none';
-      document.getElementById('joinForm').style.display = 'none';
-      document.getElementById('observeForm').style.display = 'none';
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    init();
-  </script>
+  init();
+</script>
 </body>
 </html>
