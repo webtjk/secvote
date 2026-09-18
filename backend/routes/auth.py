@@ -1,21 +1,79 @@
-# Добавить в конец файла backend/routes/auth.py
-# (только новый route — остальное не трогать)
-
+from flask import Blueprint, request, jsonify, session, redirect
+from database import get_db
 import requests as http_requests
+import os
+
+auth_bp = Blueprint('auth', __name__)
+
+
+@auth_bp.route('/me')
+def me():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    return jsonify({
+        'id': session['user_id'],
+        'name': session['user_name'],
+        'email': session['user_email'],
+        'avatar': session.get('user_avatar')
+    })
+
+
+@auth_bp.route('/logout')
+def logout():
+    session.clear()
+    return jsonify({'message': 'Выход выполнен'})
+
+
+@auth_bp.route('/google/login', methods=['POST'])
+def google_login():
+    data = request.json
+    google_id = data.get('google_id')
+    email = data.get('email')
+    name = data.get('name')
+    avatar = data.get('avatar')
+
+    if not google_id:
+        return jsonify({'error': 'Нет данных'}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute('SELECT * FROM users WHERE google_id = %s', (google_id,))
+    user = cur.fetchone()
+    if not user:
+        cur.execute(
+            'INSERT INTO users (google_id, email, name, avatar) VALUES (%s, %s, %s, %s) RETURNING *',
+            (google_id, email, name, avatar)
+        )
+        user = cur.fetchone()
+        conn.commit()
+
+    session['user_id'] = user['id']
+    session['user_name'] = user['name']
+    session['user_email'] = user['email']
+    session['user_avatar'] = user.get('avatar')
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        'success': True,
+        'user': {
+            'id': user['id'],
+            'name': user['name'],
+            'email': user['email'],
+            'avatar': user.get('avatar')
+        }
+    })
+
 
 @auth_bp.route('/google/callback')
 def google_callback():
     """Обработка OAuth redirect от Google (для мобильных устройств)"""
-    from flask import redirect, url_for
-    import os
-
     code = request.args.get('code')
     error = request.args.get('error')
 
     if error or not code:
         return redirect('/?error=cancelled')
 
-    # Обмениваем code на токен
     token_url = 'https://oauth2.googleapis.com/token'
     token_data = {
         'code': code,
@@ -33,12 +91,10 @@ def google_callback():
         if not id_token:
             return redirect('/?error=no_token')
 
-        # Декодируем JWT (без проверки подписи — Google уже проверил)
-        import base64, json
+        import base64, json as json_lib
         payload_b64 = id_token.split('.')[1]
-        # Добавляем padding если нужно
         payload_b64 += '=' * (4 - len(payload_b64) % 4)
-        payload = json.loads(base64.b64decode(payload_b64).decode())
+        payload = json_lib.loads(base64.b64decode(payload_b64).decode())
 
         google_id = payload.get('sub')
         email = payload.get('email')
@@ -48,7 +104,6 @@ def google_callback():
         if not google_id:
             return redirect('/?error=no_user')
 
-        # Сохраняем/находим пользователя в БД
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM users WHERE google_id = %s', (google_id,))
