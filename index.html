@@ -101,6 +101,7 @@
       display: flex; align-items: center; justify-content: center; gap: 10px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.2);
       transition: all .2s;
+      text-decoration: none;
     }
     .btn-google:hover { background: #f8fafc; transform: translateY(-1px); }
     .btn-google:active { transform: none; }
@@ -191,12 +192,28 @@
   </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
   const API = window.location.origin + '/api';
-  let gReady = false;
+  const CID = '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com';
 
-  window.addEventListener('load', checkAuth);
+  // Проверяем: вернулись ли с OAuth redirect (есть ?logged_in=1 в URL)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('logged_in') === '1') {
+    // Сервер уже поставил cookie, просто идём на dashboard
+    window.location.replace('/dashboard.html');
+  }
+
+  // Проверяем ошибки от сервера
+  const errParam = urlParams.get('error');
+  if (errParam) {
+    document.addEventListener('DOMContentLoaded', () => {
+      showApp();
+      const msgs = { cancelled: 'Вход отменён', no_token: 'Ошибка токена Google', no_user: 'Не удалось получить данные', server_error: 'Ошибка сервера' };
+      showSt('❌ ' + (msgs[errParam] || 'Ошибка входа'), 'err');
+    });
+  } else {
+    window.addEventListener('load', checkAuth);
+  }
 
   async function checkAuth() {
     try {
@@ -210,47 +227,54 @@
     const l = document.getElementById('loader');
     l.classList.add('hide');
     setTimeout(() => { l.style.display = 'none'; document.getElementById('app').classList.add('show'); }, 300);
-    waitGoogle();
   }
 
-  function waitGoogle() {
-    if (typeof google !== 'undefined' && google.accounts) { initGoogle(); }
-    else { setTimeout(waitGoogle, 150); }
-  }
-
-  function initGoogle() {
-    google.accounts.id.initialize({
-      client_id: '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com',
-      callback: handleCredential,
-      auto_select: false,
-      ux_mode: 'popup',
-    });
-    gReady = true;
+  // Определяем мобильный браузер
+  function isMobile() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   }
 
   function loginWithGoogle() {
-    if (!gReady) { showSt('Google загружается...', 'inf'); setTimeout(loginWithGoogle, 500); return; }
     const btn = document.getElementById('btnGoogle');
     btn.disabled = true;
-    btn.textContent = 'Открываем Google...';
+    btn.textContent = 'Переходим в Google...';
 
-    google.accounts.id.prompt(n => {
-      if (n.isNotDisplayed() || n.isSkippedMoment()) {
-        // Popup заблокирован — делаем OAuth redirect (работает везде)
-        doRedirect();
-      }
-    });
+    if (isMobile()) {
+      // На мобильных СРАЗУ делаем redirect — popup не работает
+      doOAuthRedirect();
+    } else {
+      // На десктопе пробуем popup GSI
+      loadGSIAndLogin(btn);
+    }
   }
 
-  function doRedirect() {
-    const cid = '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com';
+  function loadGSIAndLogin(btn) {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.onload = () => {
+      google.accounts.id.initialize({
+        client_id: CID,
+        callback: handleCredential,
+        auto_select: false,
+        ux_mode: 'popup',
+      });
+      google.accounts.id.prompt(n => {
+        if (n.isNotDisplayed() || n.isSkippedMoment()) {
+          // Popup заблокирован даже на десктопе — делаем redirect
+          doOAuthRedirect();
+        }
+      });
+    };
+    script.onerror = () => doOAuthRedirect();
+    document.head.appendChild(script);
+  }
+
+  function doOAuthRedirect() {
     const redir = encodeURIComponent(window.location.origin + '/api/auth/google/callback');
     const scope = encodeURIComponent('openid email profile');
-    const state = Math.random().toString(36).slice(2);
-    sessionStorage.setItem('oas', state);
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth`
-      + `?client_id=${cid}&redirect_uri=${redir}&response_type=code`
-      + `&scope=${scope}&state=${state}&prompt=select_account`;
+      + `?client_id=${CID}&redirect_uri=${redir}&response_type=code`
+      + `&scope=${scope}&prompt=select_account`;
   }
 
   async function handleCredential(resp) {

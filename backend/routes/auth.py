@@ -26,6 +26,7 @@ def logout():
 
 @auth_bp.route('/google/login', methods=['POST'])
 def google_login():
+    """Для десктопного popup входа"""
     data = request.json
     google_id = data.get('google_id')
     email = data.get('email')
@@ -68,7 +69,7 @@ def google_login():
 
 @auth_bp.route('/google/callback')
 def google_callback():
-    """OAuth redirect от Google — работает на мобильных"""
+    """OAuth redirect от Google — для мобильных браузеров"""
     code = request.args.get('code')
     error = request.args.get('error')
 
@@ -76,6 +77,7 @@ def google_callback():
         return redirect('/?error=cancelled')
 
     token_url = 'https://oauth2.googleapis.com/token'
+    # Важно: redirect_uri должен совпадать с тем что отправили Google
     redirect_uri = request.host_url.rstrip('/') + '/api/auth/google/callback'
 
     token_data = {
@@ -128,7 +130,9 @@ def google_callback():
         cur.close()
         conn.close()
 
-        return redirect('/dashboard.html')
+        # ?logged_in=1 — сигнал для index.html что вход прошёл успешно
+        # index.html сразу перенаправит на dashboard без лишнего /api/auth/me запроса
+        return redirect('/dashboard.html?logged_in=1')
 
     except Exception as e:
         print(f"OAuth callback error: {e}")
