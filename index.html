@@ -2,153 +2,452 @@
 <html lang="tg">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SV — Овоздиҳии махфӣ</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureVote — Овоздиҳии Амн</title>
   <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #3b82f6;
+      --bg: #0f172a;
+      --bg2: #1e293b;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --border: rgba(255,255,255,0.08);
+      --card: rgba(30,41,59,0.8);
+      --success: #10b981;
+      --error: #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── LOADER ── */
     #loader {
-      position: fixed; inset: 0;
-      background: #0f172a;
-      display: flex; align-items: center; justify-content: center;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       z-index: 9999;
-      transition: opacity 0.4s;
+      transition: opacity 0.4s ease;
     }
     #loader.hidden { opacity: 0; pointer-events: none; }
-    .loader-inner {
-      display: flex; flex-direction: column; align-items: center; gap: 16px;
-    }
+
     .loader-logo {
-      width: 64px; height: 64px;
-      background: linear-gradient(135deg, #2563eb, #3b82f6);
-      border-radius: 16px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 900; color: white;
-      box-shadow: 0 8px 24px rgba(37,99,235,0.5);
-      animation: pulse-logo 1.5s ease-in-out infinite;
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -1px;
+      box-shadow: 0 0 40px rgba(37,99,235,0.5);
+      animation: logoPulse 1.5s ease-in-out infinite;
+      margin-bottom: 24px;
     }
-    @keyframes pulse-logo {
-      0%, 100% { transform: scale(1); box-shadow: 0 8px 24px rgba(37,99,235,0.5); }
-      50% { transform: scale(1.05); box-shadow: 0 12px 32px rgba(37,99,235,0.7); }
+    @keyframes logoPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(37,99,235,0.5); }
+      50% { transform: scale(1.07); box-shadow: 0 0 60px rgba(37,99,235,0.8); }
     }
-    .loader-text { color: #94a3b8; font-size: 14px; letter-spacing: 0.5px; }
+
+    .loader-text {
+      color: var(--text2);
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .loader-dots {
+      display: flex;
+      gap: 6px;
+      margin-top: 16px;
+    }
+    .loader-dots span {
+      width: 8px; height: 8px;
+      background: var(--primary);
+      border-radius: 50%;
+      animation: dotBounce 1.2s ease-in-out infinite;
+    }
+    .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotBounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* ── MAIN PAGE ── */
+    #app {
+      display: none;
+      width: 100%;
+      min-height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #app.visible { display: flex; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -1px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(37,99,235,0.35);
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text2);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
+
+    .features {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 36px;
+      text-align: left;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(37,99,235,0.08);
+      border: 1px solid rgba(37,99,235,0.15);
+      border-radius: 12px;
+    }
+
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(37,99,235,0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .feature-text {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.4;
+    }
+    .feature-text strong {
+      display: block;
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .btn-google {
+      width: 100%;
+      padding: 14px 20px;
+      background: #fff;
+      color: #1f2937;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .btn-google:hover {
+      background: #f8fafc;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    .btn-google:active { transform: translateY(0); }
+    .btn-google:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+    .status {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
+    .status.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #6ee7b7; }
+    .status.info { background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.2); color: #93c5fd; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      color: var(--text2);
+      font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .join-row { display: flex; gap: 8px; }
+
+    .input {
+      flex: 1;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input::placeholder { color: var(--text2); letter-spacing: 0; text-transform: none; }
+    .input:focus { border-color: var(--primary); }
+
+    .btn-join {
+      padding: 12px 20px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-join:hover { background: var(--primary-dark); }
+
+    .footer-note {
+      margin-top: 28px;
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.5;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
 
+  <!-- LOADER -->
   <div id="loader">
-    <div class="loader-inner">
-      <div class="loader-logo">SV</div>
-      <div class="loader-text">SecureVote</div>
+    <div class="loader-logo">SV</div>
+    <div class="loader-text">SecureVote</div>
+    <div class="loader-dots">
+      <span></span><span></span><span></span>
     </div>
   </div>
 
-  <div class="page" id="mainContent" style="display:none">
-
-    <header class="header">
-      <div class="logo">
-        <div class="logo-icon">SV</div>
-        <span class="logo-text">SecureVote</span>
-      </div>
-    </header>
-
-    <main class="hero">
-      <div class="hero-content">
-
-        <div class="badge">🔒 Махфӣ · Бехатар · Одилона</div>
-
-        <h1 class="hero-title">
-          Овоз диҳед.<br/>
-          <span class="highlight">Ҳеҷ кас намедонад.</span>
-        </h1>
-
-        <p class="hero-subtitle">
-          Системаи овоздиҳии махфӣ барои Тоҷикистон
-        </p>
-
-        <button class="btn-google" id="loginBtn">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="google-icon"/>
-          Тавассути Google ворид шавед
-        </button>
-
-        <p class="login-note" id="statusText">Бақайдгирӣ лозим нест</p>
-
-      </div>
+  <!-- MAIN APP -->
+  <div id="app">
+    <div class="card">
+      <div class="logo">SV</div>
+      <h1>SecureVote</h1>
+      <p class="subtitle">Овоздиҳии амн ва беном барои Тоҷикистон</p>
 
       <div class="features">
-        <div class="feature-card">
-          <div class="feature-icon">🗳️</div>
-          <h3>Овоздиҳӣ созед</h3>
-          <p>Савол гузоред ва рамзро бо иштирокчиён мубодила кунед</p>
+        <div class="feature-item">
+          <div class="feature-icon">🔒</div>
+          <div class="feature-text">
+            <strong>Беном</strong>
+            Овози шумо бо рамзгузорӣ SHA-256 муҳофизат мешавад
+          </div>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">🔗</div>
-          <h3>Бо рамз ворид шавед</h3>
-          <p>Рамзеро, ки фиристодаанд, ворид кунед ва овоз диҳед</p>
+        <div class="feature-item">
+          <div class="feature-icon">✅</div>
+          <div class="feature-text">
+            <strong>Як маротиба</strong>
+            Аз як аккаунт танҳо як бор овоз додан мумкин
+          </div>
         </div>
-        <div class="feature-card">
+        <div class="feature-item">
           <div class="feature-icon">📊</div>
-          <h3>Натиҷаро бинед</h3>
-          <p>Танҳо фоизҳо — ҳеҷ кас намедонад кӣ чӣ овоз додааст</p>
+          <div class="feature-text">
+            <strong>Натиҷаи зинда</strong>
+            Натиҷаҳоро дар вақти воқеӣ бубинед
+          </div>
         </div>
       </div>
-    </main>
 
-    <footer class="footer">
-      <p>© 2026 SV SecureVote — Тоҷикистон</p>
-    </footer>
+      <button class="btn-google" id="btnGoogle" onclick="loginWithGoogle()">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Бо Google даромадан
+      </button>
 
+      <div id="statusMsg" class="status"></div>
+
+      <div class="divider">ё</div>
+
+      <div class="join-row">
+        <input class="input" type="text" id="pollCode" placeholder="Коди овоздиҳӣ" maxlength="6" />
+        <button class="btn-join" onclick="joinPoll()">Дохил шудан</button>
+      </div>
+
+      <p class="footer-note">
+        🔐 Ҳама маълумот рамзгузорӣ шудааст. Идентификатори шумо ҳеҷ гоҳ ба сервер нафиристода мешавад.
+      </p>
+    </div>
   </div>
 
+  <!-- Google GSI -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <script>
     const API = window.location.origin + '/api';
 
-    async function init() {
-      try {
-        const res = await fetch(`${API}/auth/me`, {
-          credentials: 'include',
-          signal: AbortSignal.timeout(3000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.id) { window.location.replace('/dashboard.html'); return; }
-        }
-      } catch (e) {}
-
-      document.getElementById('loader').classList.add('hidden');
-      document.getElementById('mainContent').style.display = 'block';
-
-      setTimeout(() => {
-        if (typeof google !== 'undefined') {
-          google.accounts.id.initialize({
-            client_id: '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com',
-            callback: handleGoogleLogin,
-            auto_select: false,
-          });
-        }
-      }, 500);
-    }
-
-    document.getElementById('loginBtn').addEventListener('click', () => {
-      if (typeof google !== 'undefined') {
-        google.accounts.id.prompt();
-      } else {
-        document.getElementById('statusText').textContent = '❌ Google загрузилось не. Обнови страницу.';
-      }
+    // ── Проверяем авторизацию при загрузке ──
+    window.addEventListener('load', () => {
+      checkAuthQuiet();
     });
 
-    async function handleGoogleLogin(response) {
-      const statusText = document.getElementById('statusText');
-      const btn = document.getElementById('loginBtn');
-      btn.disabled = true;
-      statusText.textContent = 'Дохил мешавем...';
+    async function checkAuthQuiet() {
+      try {
+        const r = await fetch(`${API}/auth/me`, { credentials: 'include' });
+        if (r.ok) {
+          window.location.href = '/dashboard.html';
+          return;
+        }
+      } catch (_) {}
+      showApp();
+    }
 
+    function showApp() {
+      const loader = document.getElementById('loader');
+      loader.classList.add('hidden');
+      setTimeout(() => {
+        loader.style.display = 'none';
+        document.getElementById('app').classList.add('visible');
+      }, 400);
+    }
+
+    // ── Google Login — используем redirect (работает на всех устройствах) ──
+    function loginWithGoogle() {
+      // Показываем загрузку
+      const btn = document.getElementById('btnGoogle');
+      btn.disabled = true;
+      showStatus('Переход на страницу Google...', 'info');
+
+      // Ждём загрузки Google GSI
+      waitForGoogle(() => {
+        google.accounts.id.initialize({
+          client_id: '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com',
+          callback: handleGoogleLogin,
+          auto_select: false,
+          ux_mode: 'popup',
+        });
+
+        // Сначала пробуем popup
+        google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            // Popup заблокирован — используем OAuth redirect
+            btn.disabled = false;
+            showStatus('', 'info');
+            doOAuthRedirect();
+          }
+        });
+      });
+    }
+
+    function doOAuthRedirect() {
+      // Строим URL для OAuth redirect — открывается как обычная страница
+      const clientId = '958043340271-2udqs3muep02uu7fbc3ut4n145avl7a7.apps.googleusercontent.com';
+      const redirectUri = encodeURIComponent(window.location.origin + '/api/auth/google/callback');
+      const scope = encodeURIComponent('openid email profile');
+      const state = Math.random().toString(36).substring(2);
+      sessionStorage.setItem('oauth_state', state);
+
+      const url = `https://accounts.google.com/o/oauth2/v2/auth`
+        + `?client_id=${clientId}`
+        + `&redirect_uri=${redirectUri}`
+        + `&response_type=code`
+        + `&scope=${scope}`
+        + `&state=${state}`
+        + `&access_type=offline`
+        + `&prompt=select_account`;
+
+      window.location.href = url;
+    }
+
+    function waitForGoogle(cb) {
+      if (typeof google !== 'undefined' && google.accounts) {
+        cb();
+      } else {
+        setTimeout(() => waitForGoogle(cb), 100);
+      }
+    }
+
+    // Обработчик для popup режима (если сработал popup)
+    async function handleGoogleLogin(response) {
+      showStatus('Вход...', 'info');
       try {
         const payload = JSON.parse(atob(response.credential.split('.')[1]));
         const res = await fetch(`${API}/auth/google/login`, {
           method: 'POST',
-          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             google_id: payload.sub,
             email: payload.email,
@@ -157,20 +456,35 @@
           }),
         });
         const data = await res.json();
-        if (data.success) {
-          statusText.textContent = '✅ Муваффақ!';
-          window.location.replace('/dashboard.html');
+        if (res.ok && data.success) {
+          showStatus('✅ Хуш омадед, ' + data.user.name + '!', 'success');
+          setTimeout(() => { window.location.href = '/dashboard.html'; }, 800);
         } else {
-          statusText.textContent = '❌ Хато. Такрор кӯшед.';
-          btn.disabled = false;
+          showStatus('❌ Ошибка: ' + (data.error || 'Неизвестно'), 'error');
         }
       } catch (e) {
-        statusText.textContent = '❌ Хато: ' + e.message;
-        btn.disabled = false;
+        showStatus('❌ Ошибка: ' + e.message, 'error');
       }
     }
 
-    window.addEventListener('load', init);
+    function joinPoll() {
+      const code = document.getElementById('pollCode').value.trim().toUpperCase();
+      if (!code || code.length < 4) {
+        showStatus('❌ Введите правильный код', 'error');
+        return;
+      }
+      window.location.href = `/vote.html?code=${code}`;
+    }
+
+    document.getElementById('pollCode').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinPoll();
+    });
+
+    function showStatus(msg, type) {
+      const el = document.getElementById('statusMsg');
+      el.textContent = msg;
+      el.className = `status${msg ? ' show ' + type : ''}`;
+    }
   </script>
 </body>
 </html>
