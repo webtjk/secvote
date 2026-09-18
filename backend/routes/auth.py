@@ -26,7 +26,6 @@ def logout():
 
 @auth_bp.route('/google/login', methods=['POST'])
 def google_login():
-    """Для десктопного popup входа"""
     data = request.json
     google_id = data.get('google_id')
     email = data.get('email')
@@ -69,7 +68,6 @@ def google_login():
 
 @auth_bp.route('/google/callback')
 def google_callback():
-    """OAuth redirect от Google — для мобильных браузеров"""
     code = request.args.get('code')
     error = request.args.get('error')
 
@@ -77,8 +75,8 @@ def google_callback():
         return redirect('/?error=cancelled')
 
     token_url = 'https://oauth2.googleapis.com/token'
-    # Жёстко прописываем https — Render иногда даёт http через request.host_url
-    redirect_uri = os.getenv('FRONTEND_URL', 'https://securevote-l5rf.onrender.com') + '/api/auth/google/callback'
+    frontend_url = os.getenv('FRONTEND_URL', 'https://securevote-l5rf.onrender.com')
+    redirect_uri = frontend_url + '/api/auth/google/callback'
 
     token_data = {
         'code': code,
@@ -130,8 +128,8 @@ def google_callback():
         cur.close()
         conn.close()
 
-        # ?logged_in=1 — сигнал для index.html что вход прошёл успешно
-        # index.html сразу перенаправит на dashboard без лишнего /api/auth/me запроса
+        # Редиректим на dashboard — popup это поймает и закроется
+        # Основная страница увидит что popup закрылся и проверит /api/auth/me
         return redirect('/dashboard.html?logged_in=1')
 
     except Exception as e:
