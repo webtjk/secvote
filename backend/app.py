@@ -14,10 +14,11 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 app = Flask(__name__, static_folder=ROOT_DIR, static_url_path='')
 app.secret_key = os.getenv('SECRET_KEY', 'securevote_secret_2026')
 
-# Важно для Render: cookie через HTTPS
+# Для мобильных браузеров: Lax работает лучше чем None при OAuth redirect
 app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 30  # 30 дней
 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://securevote-l5rf.onrender.com')
 CORS(app, supports_credentials=True, origins=[
@@ -56,7 +57,7 @@ def vote_css():
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'message': 'SecureVote работает!'})
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     init_db()
