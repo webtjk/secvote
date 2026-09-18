@@ -19,8 +19,9 @@ A secure and anonymous voting platform built with Firebase.
 
 ## 🚀 Live Demo
 
-[secvote.web.app](https://secvote.web.app)
+https://securevote-l5rf.onrender.com
 
 ## 👨‍💻 Author
 
-**Vaysiddin Rahmatov** — [@webtjk](https://github.com/webtjk)
+**Vaysiddin Rahmatov** — [@webtjk](https://securevote-l5rf.onrender.com
+)
