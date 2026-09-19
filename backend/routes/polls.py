@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 from database import get_db, release_db
-from auth_utils import require_auth  # FIX #16: единый модуль, не дублируем
+from routes.auth_utils import require_auth  # FIX #16: единый модуль, не дублируем
 import secrets
 import re
 
