@@ -75,8 +75,7 @@ def google_callback():
         return redirect('/?error=cancelled')
 
     token_url = 'https://oauth2.googleapis.com/token'
-    frontend_url = os.getenv('FRONTEND_URL', 'https://securevote-l5rf.onrender.com')
-    redirect_uri = frontend_url + '/api/auth/google/callback'
+    redirect_uri = 'https://securevote-l5rf.onrender.com/api/auth/google/callback'
 
     token_data = {
         'code': code,
