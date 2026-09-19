@@ -91,7 +91,7 @@ def submit_vote():
     access_type = poll.get('access_type', 'open')
     allowed_domain = poll.get('allowed_domain')
     if access_type == 'domain' and allowed_domain:
-        user_email = session.get('email', '')
+        user_email = session.get('user_email', '')  # FIX: правильный ключ сессии
         user_domain = user_email.split('@')[-1] if '@' in user_email else ''
         if user_domain.lower() != allowed_domain.strip().lower():
             cur.close(); conn.close()

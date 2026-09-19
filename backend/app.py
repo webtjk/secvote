@@ -9,10 +9,18 @@ from database import init_db
 
 load_dotenv()
 
+# FIX: приложение не запустится без SECRET_KEY — нет fallback с известным значением
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError(
+        'SECRET_KEY environment variable is required. '
+        'Set it in .env or Render environment variables.'
+    )
+
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 app = Flask(__name__, static_folder=ROOT_DIR, static_url_path='')
-app.secret_key = os.getenv('SECRET_KEY', 'securevote_secret_2026')
+app.secret_key = SECRET_KEY
 
 # Для мобильных браузеров: Lax работает лучше чем None при OAuth redirect
 app.config['SESSION_COOKIE_SECURE'] = True
