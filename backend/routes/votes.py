@@ -112,8 +112,10 @@ def get_results(poll_id):
     cur.execute('SELECT id FROM votes WHERE poll_id = %s AND voter_hash = %s', (poll_id, vote_hash))
     has_voted = bool(cur.fetchone())
 
-    # Создатель?
+    # Создатель? Он видит результаты сразу, без голосования
     is_creator = poll['created_by'] == session['user_id']
+    if is_creator:
+        has_voted = True  # создатель не голосует, но сразу видит результаты
 
     # Варианты с результатами
     cur.execute('SELECT * FROM options WHERE poll_id = %s ORDER BY vote_count DESC', (poll_id,))
