@@ -369,9 +369,29 @@
       if (!pollData) return;
       const closed = pollData.poll.closed;
       const pollType = pollData.poll.poll_type || 'choice';
+      const minVotes = pollData.poll.min_votes || 0;
+      const thresholdReached = pollData.threshold_reached !== false;
+      const total = pollData.total || 0;
 
       document.getElementById('resultsClosedBanner').style.display = closed ? 'block' : 'none';
       document.getElementById('liveIndicator').style.display = closed ? 'none' : 'flex';
+
+      // Показываем баннер "ждём участников" если порог не достигнут
+      let waitBanner = document.getElementById('waitThresholdBanner');
+      if (!waitBanner) {
+        waitBanner = document.createElement('div');
+        waitBanner.id = 'waitThresholdBanner';
+        waitBanner.style.cssText = 'background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#fbbf24;text-align:center;';
+        const resultsList = document.getElementById('resultsList');
+        resultsList.parentNode.insertBefore(waitBanner, resultsList);
+      }
+      if (!thresholdReached && minVotes > 0 && !pollData.poll.is_creator) {
+        const need = minVotes - total;
+        waitBanner.style.display = 'block';
+        waitBanner.innerHTML = `⏳ Натиҷаҳо баъди <b>${minVotes}</b> иштирокчӣ кушода мешаванд<br><span style="color:#94a3b8;font-size:12px">Ҳоло: ${total} — то ҳад ${need} нафар боқӣ аст</span>`;
+      } else {
+        waitBanner.style.display = 'none';
+      }
 
       const closePollBtn = document.getElementById('closePollBtn');
       if (closePollBtn) {
@@ -386,12 +406,14 @@
       if (pollType === 'open') {
         // Open poll: show collected opinions
         resultsList.style.display = 'none';
-        totalVotesEl.textContent = `Ҷамъи аризаҳо: ${pollData.total || 0}`;
+        totalVotesEl.textContent = thresholdReached
+          ? `Ҷамъи аризаҳо: ${total}`
+          : `Аризаҳо қабул мешаванд: ${total}`;
 
         const commentsSection = document.getElementById('commentsSection');
         const commentsList = document.getElementById('commentsList');
 
-        if (pollData.comments && pollData.comments.length > 0) {
+        if (thresholdReached && pollData.comments && pollData.comments.length > 0) {
           commentsSection.style.display = 'block';
           commentsList.innerHTML = '';
           pollData.comments.forEach(c => {
@@ -403,33 +425,49 @@
             `;
             commentsList.appendChild(card);
           });
-        } else if (pollData.poll.is_creator) {
+        } else if (pollData.poll.is_creator && thresholdReached) {
           commentsSection.style.display = 'block';
           commentsList.innerHTML = '<div class="comment-card" style="color:#475569">Ҳоло аризае нест</div>';
+        } else {
+          commentsSection.style.display = 'none';
         }
       } else {
         // Choice poll: bar chart
         resultsList.style.display = '';
-        totalVotesEl.textContent = `Ҷамъи овозҳо: ${pollData.total}`;
+        totalVotesEl.textContent = `Ҷамъи овозҳо: ${total}`;
         resultsList.innerHTML = '';
         pollData.options.forEach(opt => {
           const div = document.createElement('div');
           div.className = 'result-item';
-          div.innerHTML = `
-            <div class="result-top">
-              <span class="result-option">${escapeHtml(opt.text)}</span>
-              <span class="result-percent">${opt.percent}%</span>
-            </div>
-            <div class="result-bar-bg">
-              <div class="result-bar" style="width:${opt.percent}%"></div>
-            </div>
-            <span class="result-votes">${opt.votes} овоз</span>
-          `;
+          if (thresholdReached) {
+            div.innerHTML = `
+              <div class="result-top">
+                <span class="result-option">${escapeHtml(opt.text)}</span>
+                <span class="result-percent">${opt.percent}%</span>
+              </div>
+              <div class="result-bar-bg">
+                <div class="result-bar" style="width:${opt.percent}%"></div>
+              </div>
+              <span class="result-votes">${opt.votes} овоз</span>
+            `;
+          } else {
+            // Скрываем проценты — только список вариантов
+            div.innerHTML = `
+              <div class="result-top">
+                <span class="result-option">${escapeHtml(opt.text)}</span>
+                <span style="font-size:12px;color:#475569">—</span>
+              </div>
+              <div class="result-bar-bg">
+                <div class="result-bar" style="width:0%"></div>
+              </div>
+              <span class="result-votes" style="color:#475569">пинҳон аст</span>
+            `;
+          }
           resultsList.appendChild(div);
         });
 
         // Show comments section for choice_comment (creator only)
-        if (pollType === 'choice_comment' && pollData.poll.is_creator && pollData.comments && pollData.comments.length > 0) {
+        if (pollType === 'choice_comment' && thresholdReached && pollData.poll.is_creator && pollData.comments && pollData.comments.length > 0) {
           const commentsSection = document.getElementById('commentsSection');
           const commentsList = document.getElementById('commentsList');
           commentsSection.style.display = 'block';

@@ -26,6 +26,9 @@ def create_poll():
     options = data.get('options', [])
     poll_type = data.get('poll_type', 'choice')  # 'choice' | 'choice_comment' | 'open'
     comment_label = data.get('comment_label', '').strip() or None
+    min_votes = int(data.get('min_votes') or 0)
+    if min_votes < 0:
+        min_votes = 0
 
     if not question:
         return jsonify({'error': 'Введи вопрос'}), 400
@@ -60,10 +63,10 @@ def create_poll():
 
     # Создаём голосование
     cur.execute('''
-        INSERT INTO polls (code, question, created_by, access_type, allowed_domain, poll_type, comment_label)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO polls (code, question, created_by, access_type, allowed_domain, poll_type, comment_label, min_votes)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id, code
-    ''', (code, question, session['user_id'], data.get('access_type', 'open'), data.get('allowed_domain'), poll_type, comment_label))
+    ''', (code, question, session['user_id'], data.get('access_type', 'open'), data.get('allowed_domain'), poll_type, comment_label, min_votes))
     poll = cur.fetchone()
 
     # Добавляем варианты (только для choice и choice_comment)
@@ -135,6 +138,7 @@ def my_polls():
             'total_votes': poll['total_votes'],
             'poll_type': poll.get('poll_type', 'choice'),
             'comment_label': poll.get('comment_label'),
+            'min_votes': poll.get('min_votes', 0) or 0,
             'options': [{'id': o['id'], 'text': o['text'], 'vote_count': o['vote_count']} for o in options],
         })
 

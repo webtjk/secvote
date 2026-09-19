@@ -246,6 +246,13 @@
         <input type="text" id="commentLabelInp" placeholder="масалан: Фикри иловагии худро нависед..." maxlength="100" />
       </div>
 
+      <!-- Min votes threshold -->
+      <div class="fg">
+        <label>Ҳадди ақали иштирокчиён <span style="color:#475569;font-weight:400">(ихтиёрӣ)</span></label>
+        <input type="number" id="minVotesInp" min="0" max="9999" placeholder="0 — бе ҳад" style="width:100%" />
+        <p style="font-size:11px;color:#475569;margin-top:5px">Натиҷаҳо то расидан ба ин рақам аз иштирокчиён пинҳон мемонанд</p>
+      </div>
+
       <div class="fg">
         <label>Дастрасӣ</label>
         <select id="accType">
@@ -340,6 +347,8 @@
     if (!q) { alert('Саволро ворид кунед!'); return; }
     if (pollType !== 'open' && opts.length < 2) { alert('Ҳадди ақал 2 вариант!'); return; }
 
+    const minVotes = parseInt(document.getElementById('minVotesInp').value) || 0;
+
     const btn = document.getElementById('btnCreate');
     btn.disabled = true; btn.textContent = 'Эҷод мекунем...';
     try {
@@ -351,6 +360,7 @@
           options: opts,
           poll_type: pollType,
           comment_label: commentLabel,
+          min_votes: minVotes,
           access_type: document.getElementById('accType').value,
           allowed_domain: document.getElementById('domainInp').value.trim() || null
         }),

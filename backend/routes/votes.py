@@ -106,6 +106,7 @@ def get_results(poll_id):
         return jsonify({'error': 'Голосование не найдено'}), 404
 
     poll_type = poll.get('poll_type', 'choice')
+    min_votes = poll.get('min_votes', 0) or 0
 
     # Проверяем голосовал ли текущий пользователь
     vote_hash = make_vote_hash(session['user_id'], poll_id)
@@ -117,18 +118,26 @@ def get_results(poll_id):
     if is_creator:
         has_voted = True  # создатель не голосует, но сразу видит результаты
 
-    # Варианты с результатами
-    cur.execute('SELECT * FROM options WHERE poll_id = %s ORDER BY vote_count DESC', (poll_id,))
-    options = cur.fetchall()
-
     # Подсчёт общего количества голосов
     cur.execute('SELECT COUNT(*) as cnt FROM votes WHERE poll_id = %s', (poll_id,))
     total = cur.fetchone()['cnt']
 
+    # Порог не достигнут? Скрываем результаты от обычных участников
+    threshold_reached = (min_votes == 0 or total >= min_votes or is_creator)
+
+    # Варианты с результатами
+    cur.execute('SELECT * FROM options WHERE poll_id = %s ORDER BY vote_count DESC', (poll_id,))
+    options = cur.fetchall()
+
     options_data = []
     for opt in options:
-        votes = opt['vote_count']
-        percent = round(votes / total * 100) if total > 0 else 0
+        if threshold_reached:
+            votes = opt['vote_count']
+            percent = round(votes / total * 100) if total > 0 else 0
+        else:
+            # Скрываем реальные цифры до достижения порога
+            votes = None
+            percent = None
         options_data.append({
             'id': opt['id'],
             'text': opt['text'],
@@ -138,7 +147,7 @@ def get_results(poll_id):
 
     # Комментарии (для open и choice_comment — создателю показываем все, участнику тоже для open)
     comments = []
-    if poll_type in ('open', 'choice_comment'):
+    if poll_type in ('open', 'choice_comment') and threshold_reached:
         if is_creator:
             cur.execute('''
                 SELECT comment_text FROM votes
@@ -167,10 +176,12 @@ def get_results(poll_id):
             'poll_type': poll_type,
             'comment_label': poll.get('comment_label'),
             'is_creator': is_creator,
+            'min_votes': min_votes,
         },
         'options': options_data,
         'total': total,
         'has_voted': has_voted,
+        'threshold_reached': threshold_reached,
         'comments': comments,
         'my_token': vote_hash[:16] + '...' if has_voted else None,
-    })
+    })  
