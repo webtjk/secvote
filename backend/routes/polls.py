@@ -29,6 +29,7 @@ def create_poll():
     min_votes = int(data.get('min_votes') or 0)
     if min_votes < 0:
         min_votes = 0
+    weighted_voting = bool(data.get('weighted_voting', False))
 
     if not question:
         return jsonify({'error': 'Введи вопрос'}), 400
@@ -63,10 +64,10 @@ def create_poll():
 
     # Создаём голосование
     cur.execute('''
-        INSERT INTO polls (code, question, created_by, access_type, allowed_domain, poll_type, comment_label, min_votes)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO polls (code, question, created_by, access_type, allowed_domain, poll_type, comment_label, min_votes, weighted_voting)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id, code
-    ''', (code, question, session['user_id'], data.get('access_type', 'open'), data.get('allowed_domain'), poll_type, comment_label, min_votes))
+    ''', (code, question, session['user_id'], data.get('access_type', 'open'), data.get('allowed_domain'), poll_type, comment_label, min_votes, weighted_voting))
     poll = cur.fetchone()
 
     # Добавляем варианты (только для choice и choice_comment)
@@ -139,6 +140,7 @@ def my_polls():
             'poll_type': poll.get('poll_type', 'choice'),
             'comment_label': poll.get('comment_label'),
             'min_votes': poll.get('min_votes', 0) or 0,
+            'weighted_voting': bool(poll.get('weighted_voting', False)),
             'options': [{'id': o['id'], 'text': o['text'], 'vote_count': o['vote_count']} for o in options],
         })
 

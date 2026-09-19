@@ -26,6 +26,13 @@ def submit_vote():
     poll_id = data.get('poll_id')
     option_id = data.get('option_id')
     comment_text = (data.get('comment_text') or '').strip() or None
+    # Взвешенный голос: вес участника (доля, %, баллы — любое число > 0)
+    try:
+        weight = float(data.get('weight') or 1.0)
+        if weight <= 0:
+            weight = 1.0
+    except (TypeError, ValueError):
+        weight = 1.0
 
     if not poll_id:
         return jsonify({'error': 'Не указан poll_id'}), 400
@@ -71,11 +78,15 @@ def submit_vote():
         cur.close(); conn.close()
         return jsonify({'error': 'Вы уже проголосовали'}), 400
 
+    # Для невзвешенного голосования вес всегда 1.0
+    if not poll.get('weighted_voting', False):
+        weight = 1.0
+
     # Сохраняем голос
     cur.execute('''
-        INSERT INTO votes (poll_id, voter_hash, option_id, comment_text)
-        VALUES (%s, %s, %s, %s)
-    ''', (poll_id, vote_hash, option_id, comment_text))
+        INSERT INTO votes (poll_id, voter_hash, option_id, comment_text, weight)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (poll_id, vote_hash, option_id, comment_text, weight))
 
     # Увеличиваем счётчик варианта (если выбран)
     if option_id:
@@ -107,22 +118,28 @@ def get_results(poll_id):
 
     poll_type = poll.get('poll_type', 'choice')
     min_votes = poll.get('min_votes', 0) or 0
+    weighted_voting = bool(poll.get('weighted_voting', False))
 
     # Проверяем голосовал ли текущий пользователь
     vote_hash = make_vote_hash(session['user_id'], poll_id)
-    cur.execute('SELECT id FROM votes WHERE poll_id = %s AND voter_hash = %s', (poll_id, vote_hash))
-    has_voted = bool(cur.fetchone())
+    cur.execute('SELECT id, weight FROM votes WHERE poll_id = %s AND voter_hash = %s', (poll_id, vote_hash))
+    my_vote = cur.fetchone()
+    has_voted = bool(my_vote)
+    my_weight = float(my_vote['weight']) if my_vote else None
 
     # Создатель? Он видит результаты сразу, без голосования
     is_creator = poll['created_by'] == session['user_id']
     if is_creator:
         has_voted = True  # создатель не голосует, но сразу видит результаты
 
-    # Подсчёт общего количества голосов
-    cur.execute('SELECT COUNT(*) as cnt FROM votes WHERE poll_id = %s', (poll_id,))
-    total = cur.fetchone()['cnt']
+    # Подсчёт: для взвешенного — сумма весов, для обычного — количество голосов
+    cur.execute('SELECT COUNT(*) as cnt, COALESCE(SUM(weight), 0) as weight_sum FROM votes WHERE poll_id = %s', (poll_id,))
+    row = cur.fetchone()
+    total_count = row['cnt']       # количество участников
+    total_weight = float(row['weight_sum'])  # сумма весов
 
-    # Порог не достигнут? Скрываем результаты от обычных участников
+    # Для порога используем количество участников (не сумму весов)
+    total = total_count
     threshold_reached = (min_votes == 0 or total >= min_votes or is_creator)
 
     # Варианты с результатами
@@ -130,20 +147,44 @@ def get_results(poll_id):
     options = cur.fetchall()
 
     options_data = []
+    if weighted_voting:
+        # Взвешенный подсчёт: SUM(weight) по каждому варианту
+        cur.execute('''
+            SELECT option_id, COALESCE(SUM(weight), 0) as w_sum
+            FROM votes WHERE poll_id = %s AND option_id IS NOT NULL
+            GROUP BY option_id
+        ''', (poll_id,))
+        weight_map = {r['option_id']: float(r['w_sum']) for r in cur.fetchall()}
+
     for opt in options:
         if threshold_reached:
-            votes = opt['vote_count']
-            percent = round(votes / total * 100) if total > 0 else 0
+            if weighted_voting:
+                w_votes = weight_map.get(opt['id'], 0.0)
+                percent = round(w_votes / total_weight * 100) if total_weight > 0 else 0
+                options_data.append({
+                    'id': opt['id'],
+                    'text': opt['text'],
+                    'votes': opt['vote_count'],       # количество участников
+                    'weight_sum': round(w_votes, 4),  # сумма весов
+                    'percent': percent,
+                })
+            else:
+                votes = opt['vote_count']
+                percent = round(votes / total * 100) if total > 0 else 0
+                options_data.append({
+                    'id': opt['id'],
+                    'text': opt['text'],
+                    'votes': votes,
+                    'percent': percent,
+                })
         else:
             # Скрываем реальные цифры до достижения порога
-            votes = None
-            percent = None
-        options_data.append({
-            'id': opt['id'],
-            'text': opt['text'],
-            'votes': votes,
-            'percent': percent,
-        })
+            options_data.append({
+                'id': opt['id'],
+                'text': opt['text'],
+                'votes': None,
+                'percent': None,
+            })
 
     # Комментарии (для open и choice_comment — создателю показываем все, участнику тоже для open)
     comments = []
@@ -177,11 +218,14 @@ def get_results(poll_id):
             'comment_label': poll.get('comment_label'),
             'is_creator': is_creator,
             'min_votes': min_votes,
+            'weighted_voting': weighted_voting,
         },
         'options': options_data,
         'total': total,
+        'total_weight': round(total_weight, 4) if weighted_voting else None,
+        'my_weight': my_weight,
         'has_voted': has_voted,
         'threshold_reached': threshold_reached,
         'comments': comments,
         'my_token': vote_hash[:16] + '...' if has_voted else None,
-    })  
+    })

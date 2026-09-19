@@ -126,6 +126,21 @@
           📝 Фикру мулоҳизаи худро дар поён нависед
         </p>
 
+        <!-- Weighted vote input -->
+        <div id="weightBlock" class="comment-block" style="display:none">
+          <label class="comment-label">⚖️ Вазни овози шумо <span style="color:#ef4444;font-size:11px">*</span></label>
+          <input
+            type="number"
+            id="weightInput"
+            min="0.0001"
+            step="any"
+            placeholder="масалан: 30 (барои 30%)"
+            style="width:100%;padding:11px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;transition:border-color .2s;"
+            onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'"
+          />
+          <p style="font-size:11px;color:#475569;margin-top:5px">Вазни шумо дар ҳисоби натиҷаҳо истифода мешавад</p>
+        </div>
+
         <!-- Comment / open textarea -->
         <div id="commentBlock" class="comment-block" style="display:none">
           <label class="comment-label" id="commentLabelText">💬 Шарҳи иловагӣ (ихтиёрӣ)</label>
@@ -254,6 +269,14 @@
 
       optionsList.innerHTML = '';
 
+      // Поле веса (если взвешенное голосование)
+      const weightBlock = document.getElementById('weightBlock');
+      if (pollData.poll.weighted_voting) {
+        weightBlock.style.display = 'block';
+      } else {
+        weightBlock.style.display = 'none';
+      }
+
       if (pollType === 'open') {
         // Только текстовое поле, без вариантов
         openHint.style.display = 'block';
@@ -308,6 +331,18 @@
         }
       }
 
+      // Проверка веса
+      let weight = null;
+      if (pollData.poll.weighted_voting) {
+        const wVal = parseFloat(document.getElementById('weightInput').value);
+        if (!wVal || wVal <= 0) {
+          alert('Вазни овозро ворид кунед! (рақами мусбат)');
+          document.getElementById('weightInput').focus();
+          return;
+        }
+        weight = wVal;
+      }
+
       const btn = document.getElementById('voteBtn');
       btn.textContent = 'Мефиристем...';
       btn.disabled = true;
@@ -317,6 +352,7 @@
           poll_id: parseInt(pollId),
           option_id: pollType !== 'open' ? selectedOption : null,
           comment_text: commentText || null,
+          weight: weight,
         };
 
         const res = await fetch(`${API}/votes/submit`, {
@@ -434,12 +470,26 @@
       } else {
         // Choice poll: bar chart
         resultsList.style.display = '';
-        totalVotesEl.textContent = `Ҷамъи овозҳо: ${total}`;
+        const isWeighted = pollData.poll.weighted_voting;
+        const totalWeight = pollData.total_weight;
+
+        if (isWeighted && thresholdReached) {
+          totalVotesEl.textContent = `Иштирокчиён: ${total} · Вазни умумӣ: ${totalWeight !== null ? totalWeight : '—'}`;
+        } else {
+          totalVotesEl.textContent = `Ҷамъи овозҳо: ${total}`;
+        }
+
         resultsList.innerHTML = '';
         pollData.options.forEach(opt => {
           const div = document.createElement('div');
           div.className = 'result-item';
           if (thresholdReached) {
+            let votesLabel;
+            if (isWeighted) {
+              votesLabel = `${opt.votes} иштирокчӣ · вазн: ${opt.weight_sum !== undefined ? opt.weight_sum : '—'}`;
+            } else {
+              votesLabel = `${opt.votes} овоз`;
+            }
             div.innerHTML = `
               <div class="result-top">
                 <span class="result-option">${escapeHtml(opt.text)}</span>
@@ -448,7 +498,7 @@
               <div class="result-bar-bg">
                 <div class="result-bar" style="width:${opt.percent}%"></div>
               </div>
-              <span class="result-votes">${opt.votes} овоз</span>
+              <span class="result-votes">${votesLabel}</span>
             `;
           } else {
             // Скрываем проценты — только список вариантов
@@ -518,9 +568,16 @@
           pollData.comments.forEach(c => { csv += `"${c.text.replace(/"/g,'""')}"\n`; });
         }
       } else {
-        csv = 'Вариант,Овозҳо,Фоиз\n';
-        pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.percent}%\n`; });
-        csv += `\nҶамъи овозҳо,${pollData.total}\n`;
+        const isWeighted = pollData.poll.weighted_voting;
+        if (isWeighted) {
+          csv = 'Вариант,Иштирокчиён,Вазни ҷамъ,Фоиз\n';
+          pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.weight_sum !== undefined ? opt.weight_sum : ''},${opt.percent}%\n`; });
+          csv += `\nҶамъи иштирокчиён,${pollData.total}\nВазни умумӣ,${pollData.total_weight}\n`;
+        } else {
+          csv = 'Вариант,Овозҳо,Фоиз\n';
+          pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.percent}%\n`; });
+          csv += `\nҶамъи овозҳо,${pollData.total}\n`;
+        }
       }
       csv += `Савол,"${pollData.poll.question.replace(/"/g,'""')}"\nРамз,${pollData.poll.code}\n`;
 

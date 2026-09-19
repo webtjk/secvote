@@ -253,6 +253,15 @@
         <p style="font-size:11px;color:#475569;margin-top:5px">Натиҷаҳо то расидан ба ин рақам аз иштирокчиён пинҳон мемонанд</p>
       </div>
 
+      <!-- Weighted voting -->
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;color:var(--text)">
+          <input type="checkbox" id="weightedVotingChk" style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;" onchange="onWeightedChange()" />
+          ⚖️ Овоздиҳии вазндор
+        </label>
+        <p style="font-size:11px;color:#475569;margin-top:5px;margin-left:28px">Ҳар иштирокчӣ вазни худро ворид мекунад (масалан, фоизи саҳмия)</p>
+      </div>
+
       <div class="fg">
         <label>Дастрасӣ</label>
         <select id="accType">
@@ -338,6 +347,10 @@
     document.getElementById('commentLabelBlock').style.display = (t === 'choice_comment' || t === 'open') ? 'block' : 'none';
   }
 
+  function onWeightedChange() {
+    // Нет дополнительного UI на стороне создателя — вес вводят сами участники
+  }
+
   async function createPoll() {
     const q = document.getElementById('pollQ').value.trim();
     const pollType = document.getElementById('pollType').value;
@@ -348,6 +361,7 @@
     if (pollType !== 'open' && opts.length < 2) { alert('Ҳадди ақал 2 вариант!'); return; }
 
     const minVotes = parseInt(document.getElementById('minVotesInp').value) || 0;
+    const weightedVoting = document.getElementById('weightedVotingChk').checked;
 
     const btn = document.getElementById('btnCreate');
     btn.disabled = true; btn.textContent = 'Эҷод мекунем...';
@@ -361,6 +375,7 @@
           poll_type: pollType,
           comment_label: commentLabel,
           min_votes: minVotes,
+          weighted_voting: weightedVoting,
           access_type: document.getElementById('accType').value,
           allowed_domain: document.getElementById('domainInp').value.trim() || null
         }),
