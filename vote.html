@@ -557,6 +557,12 @@
       if (pollData) { navigator.clipboard.writeText(pollData.poll.code); alert(`Рамз нусха бардошта шуд: ${pollData.poll.code}`); }
     }
 
+    function csvSafe(val) {
+      // FIX: CSV Formula Injection — префикс апостроф для значений начинающихся с =, +, -, @, TAB, CR
+      const s = String(val);
+      return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+    }
+
     function exportCSV() {
       if (!pollData) return;
       const pollType = pollData.poll.poll_type || 'choice';
@@ -565,21 +571,31 @@
       if (pollType === 'open') {
         csv = 'Аризаи ношинос\n';
         if (pollData.comments) {
-          pollData.comments.forEach(c => { csv += `"${c.text.replace(/"/g,'""')}"\n`; });
+          pollData.comments.forEach(c => {
+            const safeText = csvSafe(c.text).replace(/"/g,'""');
+            csv += `"${safeText}"\n`;
+          });
         }
       } else {
         const isWeighted = pollData.poll.weighted_voting;
         if (isWeighted) {
           csv = 'Вариант,Иштирокчиён,Вазни ҷамъ,Фоиз\n';
-          pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.weight_sum !== undefined ? opt.weight_sum : ''},${opt.percent}%\n`; });
+          pollData.options.forEach(opt => {
+            const safeText = csvSafe(opt.text).replace(/"/g,'""');
+            csv += `"${safeText}",${opt.votes},${opt.weight_sum !== undefined ? opt.weight_sum : ''},${opt.percent}%\n`;
+          });
           csv += `\nҶамъи иштирокчиён,${pollData.total}\nВазни умумӣ,${pollData.total_weight}\n`;
         } else {
           csv = 'Вариант,Овозҳо,Фоиз\n';
-          pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.percent}%\n`; });
+          pollData.options.forEach(opt => {
+            const safeText = csvSafe(opt.text).replace(/"/g,'""');
+            csv += `"${safeText}",${opt.votes},${opt.percent}%\n`;
+          });
           csv += `\nҶамъи овозҳо,${pollData.total}\n`;
         }
       }
-      csv += `Савол,"${pollData.poll.question.replace(/"/g,'""')}"\nРамз,${pollData.poll.code}\n`;
+      const safeQ = csvSafe(pollData.poll.question).replace(/"/g,'""');
+      csv += `Савол,"${safeQ}"\nРамз,${pollData.poll.code}\n`;
 
       const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);

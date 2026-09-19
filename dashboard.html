@@ -428,18 +428,23 @@
     list.innerHTML = '';
     filtered.forEach(p => {
       const d = document.createElement('div'); d.className = 'poll-item';
+      // FIX: не используем inline onclick со строками — XSS через одинарные кавычки
       d.innerHTML = `
         <div class="pi-top">
-          <span class="pi-code">${p.code}</span>
+          <span class="pi-code">${esc(p.code)}</span>
           <span class="pi-status ${p.closed ? 'closed' : 'open'}">${p.closed ? '🔒 Пӯшида' : '🟢 Фаъол'}</span>
         </div>
         <div class="pi-q">${esc(p.question)}</div>
         <div class="pi-votes">${p.total_votes} овоз</div>
         <div class="pi-btns">
-          <button class="btn-sm btn-view" onclick="location.href='/vote.html?id=${p.id}'">Тамошо кунед</button>
-          <button class="btn-sm btn-csv" onclick="exportCSV(${p.id})">📥 CSV</button>
-          <button class="btn-sm btn-del" onclick="delPoll(${p.id},'${esc(p.question)}')">🗑️</button>
+          <button class="btn-sm btn-view" data-id="${p.id}">Тамошо кунед</button>
+          <button class="btn-sm btn-csv" data-id="${p.id}">📥 CSV</button>
+          <button class="btn-sm btn-del" data-id="${p.id}">🗑️</button>
         </div>`;
+      // FIX: addEventListener вместо onclick — нет XSS через вопрос с кавычками
+      d.querySelector('.btn-view').addEventListener('click', () => { location.href = '/vote.html?id=' + p.id; });
+      d.querySelector('.btn-csv').addEventListener('click', () => exportCSV(p.id));
+      d.querySelector('.btn-del').addEventListener('click', () => delPoll(p.id, p.question));
       list.appendChild(d);
     });
   }
@@ -454,11 +459,21 @@
     } catch(e) { alert('❌ Хатои шабака'); }
   }
 
+  function csvSafe(val) {
+    // FIX: CSV Formula Injection — префикс апостроф для значений начинающихся с =, +, -, @, TAB, CR
+    const s = String(val);
+    return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+  }
+
   function exportCSV(id) {
     const p = polls.find(x => x.id === id); if (!p) return;
     const total = p.total_votes || 0;
     let csv = 'Вариант,Овозҳо,Фоиз\n';
-    p.options.forEach(o => { const pct = total > 0 ? Math.round(o.vote_count/total*100) : 0; csv += `"${o.text.replace(/"/g,'""')}",${o.vote_count},${pct}%\n`; });
+    p.options.forEach(o => {
+      const pct = total > 0 ? Math.round(o.vote_count/total*100) : 0;
+      const safeText = csvSafe(o.text).replace(/"/g,'""');
+      csv += `"${safeText}",${o.vote_count},${pct}%\n`;
+    });
     csv += `\nҶамъ,${total}\n`;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'}));

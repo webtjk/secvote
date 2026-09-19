@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, session
 from database import get_db
 import hashlib
-import secrets
+import math
+import os
 
 votes_bp = Blueprint('votes', __name__)
 
@@ -15,8 +16,9 @@ def require_auth(f):
     return decorated
 
 def make_vote_hash(user_id, poll_id):
-    """SHA-256 анонимизация: никто не может связать голос с пользователем"""
-    raw = f"{user_id}:{poll_id}:securevote_salt"
+    """SHA-256 анонимизация с SECRET_KEY из окружения"""
+    secret = os.environ['SECRET_KEY']  # KeyError если не задан — намеренно
+    raw = f"{user_id}:{poll_id}:{secret}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 @votes_bp.route('/submit', methods=['POST'])
@@ -25,12 +27,21 @@ def submit_vote():
     data = request.json
     poll_id = data.get('poll_id')
     option_id = data.get('option_id')
-    comment_text = (data.get('comment_text') or '').strip() or None
-    # Взвешенный голос: вес участника (доля, %, баллы — любое число > 0)
+
+    # FIX: comment_text ограничен 500 символами на сервере
+    comment_text = (data.get('comment_text') or '').strip()[:500] or None
+
+    # FIX: weight — строгая валидация, верхний лимит, проверка isfinite
     try:
-        weight = float(data.get('weight') or 1.0)
-        if weight <= 0:
+        raw_weight = data.get('weight')
+        if raw_weight is None:
             weight = 1.0
+        else:
+            weight = float(raw_weight)
+            if not math.isfinite(weight) or weight <= 0:
+                weight = 1.0
+            if weight > 1_000_000:
+                return jsonify({'error': 'Вес слишком большой (максимум 1 000 000)'}), 400
     except (TypeError, ValueError):
         weight = 1.0
 
@@ -54,6 +65,11 @@ def submit_vote():
 
     poll_type = poll.get('poll_type', 'choice')
 
+    # FIX: создатель не может голосовать в своём опросе
+    if poll['created_by'] == session['user_id']:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Создатель не может голосовать'}), 403
+
     # Проверяем тип: для choice/choice_comment нужен option_id
     if poll_type in ('choice', 'choice_comment') and not option_id:
         cur.close(); conn.close()
@@ -70,6 +86,16 @@ def submit_vote():
         if not cur.fetchone():
             cur.close(); conn.close()
             return jsonify({'error': 'Неверный вариант'}), 400
+
+    # FIX: проверка allowed_domain при голосовании
+    access_type = poll.get('access_type', 'open')
+    allowed_domain = poll.get('allowed_domain')
+    if access_type == 'domain' and allowed_domain:
+        user_email = session.get('email', '')
+        user_domain = user_email.split('@')[-1] if '@' in user_email else ''
+        if user_domain.lower() != allowed_domain.strip().lower():
+            cur.close(); conn.close()
+            return jsonify({'error': f'Доступ только для домена {allowed_domain}'}), 403
 
     # Анонимный хеш — проверяем уже голосовал
     vote_hash = make_vote_hash(session['user_id'], poll_id)
