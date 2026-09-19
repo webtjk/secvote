@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 from database import get_db, release_db
-from auth_utils import require_auth  # FIX #16: единый модуль
+from routes.auth_utils import require_auth  # FIX #16: единый модуль
 import hashlib
 import math
 import os
