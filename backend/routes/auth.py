@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, redirect
+from flask import Blueprint, request, jsonify, session, redirect, make_response
 from database import get_db, release_db
 import requests as http_requests
 import secrets
@@ -25,19 +25,23 @@ def logout():
     return jsonify({'message': 'Выход выполнен'})
 
 
-# FIX #14: endpoint для получения OAuth state
-# Фронтенд запрашивает state, затем передаёт его в Google redirect URI
 @auth_bp.route('/google/state')
 def google_state():
-    """Генерирует и сохраняет OAuth state для защиты от CSRF при логине."""
+    """State хранится в отдельной cookie — работает на любом воркере gunicorn."""
     state = secrets.token_urlsafe(32)
-    session['oauth_state'] = state
-    return jsonify({'state': state})
+    resp = make_response(jsonify({'state': state}))
+    resp.set_cookie(
+        'oauth_state', state,
+        max_age=300,
+        secure=True,
+        httponly=True,
+        samesite='Lax'
+    )
+    return resp
 
 
 @auth_bp.route('/google/login', methods=['POST'])
 def google_login():
-    """Прямой login через google_id (используется если фронтенд сам получил токен)."""
     data = request.json
     google_id = data.get('google_id')
     email = data.get('email')
@@ -92,8 +96,8 @@ def google_callback():
     if error or not code:
         return redirect('/?error=cancelled')
 
-    # FIX #14: проверяем OAuth state — защита от login CSRF
-    state_expected = session.pop('oauth_state', None)
+    # State из cookie — работает независимо от воркера
+    state_expected = request.cookies.get('oauth_state')
     if not state_expected or state_received != state_expected:
         return redirect('/?error=invalid_state')
 
@@ -117,14 +121,11 @@ def google_callback():
             print(f"Token error: {token_json}")
             return redirect('/?error=no_token')
 
-        # Декодируем JWT payload (без верификации подписи — это упрощённый вариант)
-        # TODO: использовать google-auth библиотеку для полной верификации подписи
         import base64, json as json_lib
         payload_b64 = id_token.split('.')[1]
         payload_b64 += '=' * (4 - len(payload_b64) % 4)
         payload = json_lib.loads(base64.b64decode(payload_b64).decode())
 
-        # Проверяем базовые claims
         if payload.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
             return redirect('/?error=invalid_issuer')
         if payload.get('aud') != os.getenv('GOOGLE_CLIENT_ID'):
@@ -165,7 +166,10 @@ def google_callback():
             release_db(conn)
             raise e
 
-        return redirect('/dashboard.html?logged_in=1')
+        # Удаляем oauth_state cookie после успешного логина
+        resp = make_response(redirect('/dashboard.html?logged_in=1'))
+        resp.delete_cookie('oauth_state')
+        return resp
 
     except Exception as e:
         print(f"OAuth callback error: {e}")
