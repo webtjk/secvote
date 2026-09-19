@@ -24,15 +24,22 @@ def create_poll():
     data = request.json
     question = data.get('question', '').strip()
     options = data.get('options', [])
+    poll_type = data.get('poll_type', 'choice')  # 'choice' | 'choice_comment' | 'open'
+    comment_label = data.get('comment_label', '').strip() or None
 
     if not question:
         return jsonify({'error': 'Введи вопрос'}), 400
     if len(question) > 300:
         return jsonify({'error': 'Вопрос слишком длинный'}), 400
-    if len(options) < 2:
-        return jsonify({'error': 'Минимум 2 варианта'}), 400
-    if len(options) > 10:
-        return jsonify({'error': 'Максимум 10 вариантов'}), 400
+    if poll_type not in ('choice', 'choice_comment', 'open'):
+        return jsonify({'error': 'Неверный тип голосования'}), 400
+
+    # Для типов с вариантами — минимум 2 варианта
+    if poll_type in ('choice', 'choice_comment'):
+        if len(options) < 2:
+            return jsonify({'error': 'Минимум 2 варианта'}), 400
+        if len(options) > 10:
+            return jsonify({'error': 'Максимум 10 вариантов'}), 400
 
     conn = get_db()
     cur = conn.cursor()
@@ -53,16 +60,17 @@ def create_poll():
 
     # Создаём голосование
     cur.execute('''
-        INSERT INTO polls (code, question, created_by, access_type, allowed_domain)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO polls (code, question, created_by, access_type, allowed_domain, poll_type, comment_label)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id, code
-    ''', (code, question, session['user_id'], data.get('access_type', 'open'), data.get('allowed_domain')))
+    ''', (code, question, session['user_id'], data.get('access_type', 'open'), data.get('allowed_domain'), poll_type, comment_label))
     poll = cur.fetchone()
 
-    # Добавляем варианты
-    for opt_text in options:
-        if opt_text.strip():
-            cur.execute('INSERT INTO options (poll_id, text) VALUES (%s, %s)', (poll['id'], opt_text.strip()))
+    # Добавляем варианты (только для choice и choice_comment)
+    if poll_type in ('choice', 'choice_comment'):
+        for opt_text in options:
+            if opt_text.strip():
+                cur.execute('INSERT INTO options (poll_id, text) VALUES (%s, %s)', (poll['id'], opt_text.strip()))
 
     conn.commit()
     cur.close()
@@ -95,6 +103,8 @@ def join_poll(code):
         'code': poll['code'],
         'question': poll['question'],
         'closed': poll['closed'],
+        'poll_type': poll.get('poll_type', 'choice'),
+        'comment_label': poll.get('comment_label'),
         'options': [{'id': o['id'], 'text': o['text'], 'vote_count': o['vote_count']} for o in options],
     })
 
@@ -105,7 +115,7 @@ def my_polls():
     cur = conn.cursor()
 
     cur.execute('''
-        SELECT p.*, 
+        SELECT p.*,
                (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) as total_votes
         FROM polls p
         WHERE p.created_by = %s
@@ -123,6 +133,8 @@ def my_polls():
             'question': poll['question'],
             'closed': poll['closed'],
             'total_votes': poll['total_votes'],
+            'poll_type': poll.get('poll_type', 'choice'),
+            'comment_label': poll.get('comment_label'),
             'options': [{'id': o['id'], 'text': o['text'], 'vote_count': o['vote_count']} for o in options],
         })
 
@@ -166,3 +178,29 @@ def delete_poll(poll_id):
     conn.close()
 
     return jsonify({'success': True})
+
+@polls_bp.route('/<int:poll_id>/comments')
+@require_auth
+def get_comments(poll_id):
+    """Получить анонимные комментарии к голосованию (только для создателя)"""
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute('SELECT * FROM polls WHERE id = %s AND created_by = %s', (poll_id, session['user_id']))
+    if not cur.fetchone():
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'Нет доступа'}), 403
+
+    cur.execute('''
+        SELECT comment_text, created_at
+        FROM votes
+        WHERE poll_id = %s AND comment_text IS NOT NULL AND comment_text != ''
+        ORDER BY created_at DESC
+    ''', (poll_id,))
+    comments = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return jsonify([{'text': c['comment_text'], 'time': str(c['created_at'])} for c in comments])

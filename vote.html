@@ -1,14 +1,87 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="tg">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SV — Голосование</title>
+  <title>SV — Овоздиҳӣ</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="vote.css" />
   <style>
     #loader { position: fixed; inset: 0; background: #0a1628; display: flex; align-items: center; justify-content: center; z-index: 9999; }
     .loader-logo { color: white; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
+
+    /* Comment / open textarea */
+    .comment-block {
+      margin-top: 18px;
+    }
+    .comment-label {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .comment-textarea {
+      width: 100%;
+      min-height: 90px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      color: #f1f5f9;
+      font-size: 14px;
+      padding: 12px 14px;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+      line-height: 1.5;
+      transition: border-color .2s;
+      box-sizing: border-box;
+    }
+    .comment-textarea:focus {
+      border-color: #2563eb;
+    }
+    .comment-textarea::placeholder {
+      color: #475569;
+    }
+    .char-count {
+      text-align: right;
+      font-size: 11px;
+      color: #475569;
+      margin-top: 4px;
+    }
+
+    /* Open-opinion comments list in results */
+    .comments-section {
+      margin-top: 20px;
+    }
+    .comments-title {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    .comment-card {
+      background: rgba(37,99,235,0.07);
+      border: 1px solid rgba(37,99,235,0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+    .comment-card-anon {
+      font-size: 11px;
+      color: #475569;
+      margin-top: 4px;
+    }
+
+    /* Open poll — hide options, show only textarea */
+    .open-poll-hint {
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 14px;
+    }
   </style>
 </head>
 <body>
@@ -24,8 +97,8 @@
         <span class="logo-text">SecureVote</span>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
-        <span id="observerBadge" style="display:none" class="observer-badge">👁️ Наблюдатель</span>
-        <button class="btn-logout" onclick="window.location.href='/dashboard.html'">← Назад</button>
+        <span id="observerBadge" style="display:none" class="observer-badge">👁️ Мушоҳида</span>
+        <button class="btn-logout" onclick="window.location.href='/dashboard.html'">← Бозгашт</button>
       </div>
     </header>
 
@@ -33,57 +106,87 @@
 
       <div id="loadingState" class="state-box">
         <div class="spinner"></div>
-        <p>Загружаем голосование...</p>
+        <p>Бор мекунем...</p>
       </div>
 
+      <!-- VOTE STATE -->
       <div id="voteState" style="display:none" class="vote-box">
         <div class="vote-header">
-          <span class="vote-badge">🔒 Анонимное голосование</span>
+          <span class="vote-badge">🔒 Овоздиҳии ношинос</span>
           <div class="vote-code" id="voteCode"></div>
         </div>
-        <div id="closedBanner" style="display:none" class="closed-banner">🔒 Голосование закрыто</div>
+        <div id="closedBanner" style="display:none" class="closed-banner">🔒 Овоздиҳӣ пӯшида аст</div>
         <h1 id="voteQuestion" class="vote-question"></h1>
+
+        <!-- Options list (for 'choice' and 'choice_comment') -->
         <div id="optionsList" class="options-list"></div>
-        <button class="btn-primary btn-vote" id="voteBtn" onclick="submitVote()">Проголосовать</button>
-        <p class="vote-note">Твой голос анонимен — никто не узнает твой выбор</p>
+
+        <!-- Open poll hint -->
+        <p id="openPollHint" class="open-poll-hint" style="display:none">
+          📝 Фикру мулоҳизаи худро дар поён нависед
+        </p>
+
+        <!-- Comment / open textarea -->
+        <div id="commentBlock" class="comment-block" style="display:none">
+          <label class="comment-label" id="commentLabelText">💬 Шарҳи иловагӣ (ихтиёрӣ)</label>
+          <textarea
+            class="comment-textarea"
+            id="commentInput"
+            placeholder="Фикри худро нависед..."
+            maxlength="500"
+            oninput="updateCharCount()"
+          ></textarea>
+          <div class="char-count"><span id="charCount">0</span>/500</div>
+        </div>
+
+        <button class="btn-primary btn-vote" id="voteBtn" onclick="submitVote()">Овоз диҳед</button>
+        <p class="vote-note">🔒 Овози шумо ношинос аст — ҳеҷ кас намедонад</p>
       </div>
 
+      <!-- RESULTS STATE -->
       <div id="resultsState" style="display:none" class="vote-box">
         <div class="vote-header">
-          <span class="vote-badge" id="resultsBadge">📊 Результаты</span>
+          <span class="vote-badge" id="resultsBadge">📊 Натиҷаҳо</span>
           <div class="vote-code" id="resultsCode"></div>
         </div>
-        <div id="resultsClosedBanner" style="display:none" class="closed-banner">🔒 Голосование закрыто</div>
+        <div id="resultsClosedBanner" style="display:none" class="closed-banner">🔒 Овоздиҳӣ пӯшида аст</div>
         <h1 id="resultsQuestion" class="vote-question"></h1>
 
         <div id="creatorControls" style="display:none">
-          <button class="btn-close-poll" id="closePollBtn" onclick="togglePoll()">🔒 Закрыть голосование</button>
+          <button class="btn-close-poll" id="closePollBtn" onclick="togglePoll()">🔒 Пӯшидан</button>
         </div>
 
+        <!-- Bar chart results (for choice / choice_comment) -->
         <div id="resultsList" class="results-list"></div>
         <p class="results-total" id="totalVotes"></p>
 
+        <!-- Open opinion comments list -->
+        <div id="commentsSection" class="comments-section" style="display:none">
+          <p class="comments-title">📝 Аризаҳои ношинос</p>
+          <div id="commentsList"></div>
+        </div>
+
         <div id="tokenBox" style="display:none; margin-top:12px; padding:12px; background:rgba(37,99,235,0.1); border-radius:12px; border:1px solid rgba(96,165,250,0.3);">
-          <p style="font-size:13px; color:var(--gray-muted); margin-bottom:6px;">🔐 Твой токен верификации:</p>
+          <p style="font-size:13px; color:var(--gray-muted); margin-bottom:6px;">🔐 Токени тасдиқи шумо:</p>
           <p id="tokenText" style="font-size:11px; word-break:break-all; color:var(--blue-glow); font-family:monospace;"></p>
-          <p style="font-size:11px; color:var(--gray-muted); margin-top:4px;">Сохрани его — ты можешь проверить свой голос в любое время</p>
+          <p style="font-size:11px; color:var(--gray-muted); margin-top:4px;">Онро нигоҳ доред — шумо метавонед овози худро тафтиш кунед</p>
         </div>
 
         <div class="live-indicator" id="liveIndicator">
-          <span class="live-dot"></span> Обновляется в реальном времени
+          <span class="live-dot"></span> Дар вақти воқеӣ навшавӣ мешавад
         </div>
 
         <div class="results-actions">
-          <button class="btn-secondary" onclick="window.location.href='/dashboard.html'">← На главную</button>
-          <button class="btn-primary" onclick="shareCode()">Поделиться кодом</button>
-          <button class="btn-csv-vote" id="exportBtn" style="display:none" onclick="exportCSV()">📥 Скачать CSV</button>
+          <button class="btn-secondary" onclick="window.location.href='/dashboard.html'">← Саҳифаи асосӣ</button>
+          <button class="btn-primary" onclick="shareCode()">Рамзро мубодила кунед</button>
+          <button class="btn-csv-vote" id="exportBtn" style="display:none" onclick="exportCSV()">📥 CSV зеркашӣ</button>
         </div>
       </div>
 
       <div id="errorState" style="display:none" class="state-box">
         <div style="font-size:48px">❌</div>
-        <p id="errorText">Голосование не найдено</p>
-        <button class="btn-primary" onclick="window.location.href='/dashboard.html'">На главную</button>
+        <p id="errorText">Овоздиҳӣ ёфт нашуд</p>
+        <button class="btn-primary" onclick="window.location.href='/dashboard.html'">Саҳифаи асосӣ</button>
       </div>
 
     </main>
@@ -99,6 +202,11 @@
     let selectedOption = null;
     let refreshInterval = null;
 
+    function updateCharCount() {
+      const ta = document.getElementById('commentInput');
+      document.getElementById('charCount').textContent = ta.value.length;
+    }
+
     async function init() {
       try {
         const authRes = await fetch(`${API}/auth/me`, { credentials: 'include' });
@@ -107,7 +215,7 @@
         document.getElementById('loader').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
 
-        if (!pollId) { showError('Голосование не указано'); return; }
+        if (!pollId) { showError('Овоздиҳӣ нишон дода нашудааст'); return; }
         if (isObserver) document.getElementById('observerBadge').style.display = 'block';
 
         await loadResults();
@@ -127,24 +235,50 @@
         if (data.has_voted) { showResults(); startAutoRefresh(); }
         else if (data.poll.closed) { showResults(); }
         else { showVote(); }
-      } catch (e) { showError('Ошибка загрузки'); }
+      } catch (e) { showError('Хатои боркунӣ'); }
     }
 
     function showVote() {
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('voteState').style.display = 'block';
-      document.getElementById('voteCode').textContent = 'Код: ' + pollData.poll.code;
+      document.getElementById('voteCode').textContent = 'Рамз: ' + pollData.poll.code;
       document.getElementById('voteQuestion').textContent = pollData.poll.question;
 
-      const list = document.getElementById('optionsList');
-      list.innerHTML = '';
-      pollData.options.forEach((opt, i) => {
-        const div = document.createElement('div');
-        div.className = 'option-item';
-        div.innerHTML = `<div class="option-radio" id="radio_${i}"></div><span>${escapeHtml(opt.text)}</span>`;
-        div.onclick = () => selectOption(i, opt.id);
-        list.appendChild(div);
-      });
+      const pollType = pollData.poll.poll_type || 'choice';
+      const commentLabel = pollData.poll.comment_label;
+
+      const optionsList = document.getElementById('optionsList');
+      const commentBlock = document.getElementById('commentBlock');
+      const commentLabelText = document.getElementById('commentLabelText');
+      const openHint = document.getElementById('openPollHint');
+
+      optionsList.innerHTML = '';
+
+      if (pollType === 'open') {
+        // Только текстовое поле, без вариантов
+        openHint.style.display = 'block';
+        commentBlock.style.display = 'block';
+        commentLabelText.textContent = commentLabel || '📝 Фикри худро нависед';
+        document.getElementById('commentInput').placeholder = 'Ҳар чизе ки мехоҳед...';
+        document.getElementById('commentInput').required = true;
+        document.getElementById('voteBtn').textContent = 'Фиристодан';
+
+      } else {
+        // Варианты ответа
+        optionsList.style.display = '';
+        pollData.options.forEach((opt, i) => {
+          const div = document.createElement('div');
+          div.className = 'option-item';
+          div.innerHTML = `<div class="option-radio" id="radio_${i}"></div><span>${escapeHtml(opt.text)}</span>`;
+          div.onclick = () => selectOption(i, opt.id);
+          optionsList.appendChild(div);
+        });
+
+        if (pollType === 'choice_comment') {
+          commentBlock.style.display = 'block';
+          commentLabelText.textContent = commentLabel ? '💬 ' + commentLabel : '💬 Шарҳи иловагӣ (ихтиёрӣ)';
+        }
+      }
     }
 
     function selectOption(index, optionId) {
@@ -157,17 +291,39 @@
     }
 
     async function submitVote() {
-      if (!selectedOption) { alert('Выбери вариант!'); return; }
+      const pollType = pollData.poll.poll_type || 'choice';
+      const commentText = document.getElementById('commentInput').value.trim();
+
+      // Validation
+      if (pollType === 'open') {
+        if (!commentText) {
+          alert('Фикри худро нависед!');
+          document.getElementById('commentInput').focus();
+          return;
+        }
+      } else {
+        if (!selectedOption) {
+          alert('Вариантеро интихоб кунед!');
+          return;
+        }
+      }
+
       const btn = document.getElementById('voteBtn');
-      btn.textContent = 'Отправляем...';
+      btn.textContent = 'Мефиристем...';
       btn.disabled = true;
 
       try {
+        const body = {
+          poll_id: parseInt(pollId),
+          option_id: pollType !== 'open' ? selectedOption : null,
+          comment_text: commentText || null,
+        };
+
         const res = await fetch(`${API}/votes/submit`, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ poll_id: parseInt(pollId), option_id: selectedOption }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         if (data.success) {
@@ -176,13 +332,13 @@
           showResults();
           startAutoRefresh();
         } else {
-          alert('❌ ' + (data.error || 'Ошибка'));
-          btn.textContent = 'Проголосовать';
+          alert('❌ ' + (data.error || 'Хато'));
+          btn.textContent = pollType === 'open' ? 'Фиристодан' : 'Овоз диҳед';
           btn.disabled = false;
         }
       } catch (e) {
-        alert('❌ Ошибка сети');
-        btn.textContent = 'Проголосовать';
+        alert('❌ Хатои шабака');
+        btn.textContent = pollType === 'open' ? 'Фиристодан' : 'Овоз диҳед';
         btn.disabled = false;
       }
     }
@@ -191,10 +347,10 @@
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('voteState').style.display = 'none';
       document.getElementById('resultsState').style.display = 'block';
-      document.getElementById('resultsCode').textContent = 'Код: ' + pollData.poll.code;
+      document.getElementById('resultsCode').textContent = 'Рамз: ' + pollData.poll.code;
       document.getElementById('resultsQuestion').textContent = pollData.poll.question;
 
-      if (isObserver) document.getElementById('resultsBadge').textContent = '👁️ Режим наблюдателя';
+      if (isObserver) document.getElementById('resultsBadge').textContent = '👁️ Ҳолати мушоҳид';
       if (pollData.poll.is_creator) {
         document.getElementById('creatorControls').style.display = 'block';
         document.getElementById('exportBtn').style.display = 'inline-flex';
@@ -212,34 +368,80 @@
     function updateResultsUI() {
       if (!pollData) return;
       const closed = pollData.poll.closed;
+      const pollType = pollData.poll.poll_type || 'choice';
+
       document.getElementById('resultsClosedBanner').style.display = closed ? 'block' : 'none';
       document.getElementById('liveIndicator').style.display = closed ? 'none' : 'flex';
 
       const closePollBtn = document.getElementById('closePollBtn');
       if (closePollBtn) {
-        closePollBtn.textContent = closed ? '🔓 Открыть голосование' : '🔒 Закрыть голосование';
+        closePollBtn.textContent = closed ? '🔓 Кушодан' : '🔒 Пӯшидан';
         closePollBtn.className = `btn-close-poll${closed ? ' btn-open' : ''}`;
       }
 
-      document.getElementById('totalVotes').textContent = `Всего голосов: ${pollData.total}`;
+      // Bar chart (for choice / choice_comment)
+      const resultsList = document.getElementById('resultsList');
+      const totalVotesEl = document.getElementById('totalVotes');
 
-      const list = document.getElementById('resultsList');
-      list.innerHTML = '';
-      pollData.options.forEach(opt => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `
-          <div class="result-top">
-            <span class="result-option">${escapeHtml(opt.text)}</span>
-            <span class="result-percent">${opt.percent}%</span>
-          </div>
-          <div class="result-bar-bg">
-            <div class="result-bar" style="width:${opt.percent}%"></div>
-          </div>
-          <span class="result-votes">${opt.votes} голосов</span>
-        `;
-        list.appendChild(div);
-      });
+      if (pollType === 'open') {
+        // Open poll: show collected opinions
+        resultsList.style.display = 'none';
+        totalVotesEl.textContent = `Ҷамъи аризаҳо: ${pollData.total || 0}`;
+
+        const commentsSection = document.getElementById('commentsSection');
+        const commentsList = document.getElementById('commentsList');
+
+        if (pollData.comments && pollData.comments.length > 0) {
+          commentsSection.style.display = 'block';
+          commentsList.innerHTML = '';
+          pollData.comments.forEach(c => {
+            const card = document.createElement('div');
+            card.className = 'comment-card';
+            card.innerHTML = `
+              ${escapeHtml(c.text)}
+              <div class="comment-card-anon">🔒 Ношинос</div>
+            `;
+            commentsList.appendChild(card);
+          });
+        } else if (pollData.poll.is_creator) {
+          commentsSection.style.display = 'block';
+          commentsList.innerHTML = '<div class="comment-card" style="color:#475569">Ҳоло аризае нест</div>';
+        }
+      } else {
+        // Choice poll: bar chart
+        resultsList.style.display = '';
+        totalVotesEl.textContent = `Ҷамъи овозҳо: ${pollData.total}`;
+        resultsList.innerHTML = '';
+        pollData.options.forEach(opt => {
+          const div = document.createElement('div');
+          div.className = 'result-item';
+          div.innerHTML = `
+            <div class="result-top">
+              <span class="result-option">${escapeHtml(opt.text)}</span>
+              <span class="result-percent">${opt.percent}%</span>
+            </div>
+            <div class="result-bar-bg">
+              <div class="result-bar" style="width:${opt.percent}%"></div>
+            </div>
+            <span class="result-votes">${opt.votes} овоз</span>
+          `;
+          resultsList.appendChild(div);
+        });
+
+        // Show comments section for choice_comment (creator only)
+        if (pollType === 'choice_comment' && pollData.poll.is_creator && pollData.comments && pollData.comments.length > 0) {
+          const commentsSection = document.getElementById('commentsSection');
+          const commentsList = document.getElementById('commentsList');
+          commentsSection.style.display = 'block';
+          commentsList.innerHTML = '';
+          pollData.comments.forEach(c => {
+            const card = document.createElement('div');
+            card.className = 'comment-card';
+            card.innerHTML = `${escapeHtml(c.text)}<div class="comment-card-anon">🔒 Ношинос</div>`;
+            commentsList.appendChild(card);
+          });
+        }
+      }
     }
 
     function startAutoRefresh() {
@@ -260,19 +462,31 @@
         const res = await fetch(`${API}/polls/${pollId}/toggle`, { method: 'POST', credentials: 'include' });
         const data = await res.json();
         if (data.closed !== undefined) { pollData.poll.closed = data.closed; updateResultsUI(); }
-      } catch (e) { alert('❌ Ошибка'); }
+      } catch (e) { alert('❌ Хато'); }
     }
 
     function shareCode() {
-      if (pollData) { navigator.clipboard.writeText(pollData.poll.code); alert(`Код скопирован: ${pollData.poll.code}`); }
+      if (pollData) { navigator.clipboard.writeText(pollData.poll.code); alert(`Рамз нусха бардошта шуд: ${pollData.poll.code}`); }
     }
 
     function exportCSV() {
       if (!pollData) return;
-      let csv = 'Вариант,Голоса,Процент\n';
-      pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.percent}%\n`; });
-      csv += `\nВсего голосов,${pollData.total}\nВопрос,"${pollData.poll.question.replace(/"/g,'""')}"\nКод,${pollData.poll.code}\n`;
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const pollType = pollData.poll.poll_type || 'choice';
+      let csv = '';
+
+      if (pollType === 'open') {
+        csv = 'Аризаи ношинос\n';
+        if (pollData.comments) {
+          pollData.comments.forEach(c => { csv += `"${c.text.replace(/"/g,'""')}"\n`; });
+        }
+      } else {
+        csv = 'Вариант,Овозҳо,Фоиз\n';
+        pollData.options.forEach(opt => { csv += `"${opt.text.replace(/"/g,'""')}",${opt.votes},${opt.percent}%\n`; });
+        csv += `\nҶамъи овозҳо,${pollData.total}\n`;
+      }
+      csv += `Савол,"${pollData.poll.question.replace(/"/g,'""')}"\nРамз,${pollData.poll.code}\n`;
+
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = `sv_results_${pollData.poll.code}.csv`; a.click();
@@ -282,7 +496,7 @@
     function showError(msg) {
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('errorState').style.display = 'block';
-      document.getElementById('errorText').textContent = msg || 'Голосование не найдено';
+      document.getElementById('errorText').textContent = msg || 'Овоздиҳӣ ёфт нашуд';
     }
 
     function escapeHtml(str) {

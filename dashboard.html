@@ -222,11 +222,30 @@
     <div class="form-box" id="fCreate" style="display:none">
       <h2>📝 Овоздиҳии нав</h2>
       <div class="fg"><label>Савол</label><input type="text" id="pollQ" placeholder="Саволро ворид кунед..." maxlength="300" /></div>
+
+      <!-- Poll type selector -->
       <div class="fg">
-        <label>Варианти ҷавоб</label>
+        <label>Намуди овоздиҳӣ</label>
+        <select id="pollType" onchange="onPollTypeChange()">
+          <option value="choice">🗳️ Варианти ҷавоб — классикӣ</option>
+          <option value="choice_comment">🗳️💬 Варианти ҷавоб + шарҳ</option>
+          <option value="open">📝 Фикру мулоҳиза — танҳо матн</option>
+        </select>
+      </div>
+
+      <!-- Options block (hidden for 'open') -->
+      <div class="fg" id="optBlock">
+        <label>Вариантҳо</label>
         <div id="optList"></div>
         <button class="btn-add-opt" onclick="addOpt()">+ Вариант илова кунед</button>
       </div>
+
+      <!-- Comment label (shown for choice_comment and open) -->
+      <div class="fg" id="commentLabelBlock" style="display:none">
+        <label>Матни даъват ба шарҳ <span style="color:#475569;font-weight:400">(ихтиёрӣ)</span></label>
+        <input type="text" id="commentLabelInp" placeholder="масалан: Фикри иловагии худро нависед..." maxlength="100" />
+      </div>
+
       <div class="fg">
         <label>Дастрасӣ</label>
         <select id="accType">
@@ -306,22 +325,39 @@
     document.getElementById('domFg').style.display = this.value === 'domain' ? 'block' : 'none';
   };
 
+  function onPollTypeChange() {
+    const t = document.getElementById('pollType').value;
+    document.getElementById('optBlock').style.display = t === 'open' ? 'none' : 'block';
+    document.getElementById('commentLabelBlock').style.display = (t === 'choice_comment' || t === 'open') ? 'block' : 'none';
+  }
+
   async function createPoll() {
     const q = document.getElementById('pollQ').value.trim();
+    const pollType = document.getElementById('pollType').value;
+    const commentLabel = document.getElementById('commentLabelInp').value.trim() || null;
     const opts = Array.from(document.querySelectorAll('.option-inp')).map(i => i.value.trim()).filter(v => v);
+
     if (!q) { alert('Саволро ворид кунед!'); return; }
-    if (opts.length < 2) { alert('Ҳадди ақал 2 вариант!'); return; }
+    if (pollType !== 'open' && opts.length < 2) { alert('Ҳадди ақал 2 вариант!'); return; }
+
     const btn = document.getElementById('btnCreate');
     btn.disabled = true; btn.textContent = 'Эҷод мекунем...';
     try {
       const r = await fetch(`${API}/polls/create`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, options: opts, access_type: document.getElementById('accType').value, allowed_domain: document.getElementById('domainInp').value.trim() || null }),
+        body: JSON.stringify({
+          question: q,
+          options: opts,
+          poll_type: pollType,
+          comment_label: commentLabel,
+          access_type: document.getElementById('accType').value,
+          allowed_domain: document.getElementById('domainInp').value.trim() || null
+        }),
       });
       const d = await r.json();
       if (d.success) {
-        alert(`✅ Голосование создано!\nКод: ${d.code}\nПоделитесь кодом с участниками!`);
+        alert(`✅ Овоздиҳӣ эҷод шуд!\nРамз: ${d.code}\nРамзро бо иштирокчиён мубодила кунед!`);
         hideAll(); loadPolls();
       } else { alert('❌ ' + (d.error || 'Хато')); }
     } catch(e) { alert('❌ Хатои шабака'); }
@@ -407,7 +443,11 @@
   function setTab(t) { tab = t; renderPolls(); }
   function addOptInput(i) { const inp = document.createElement('input'); inp.type='text'; inp.className='option-inp'; inp.placeholder=`Вариант ${i+1}`; inp.maxLength=200; document.getElementById('optList').appendChild(inp); }
   function addOpt() { const n = document.querySelectorAll('.option-inp').length; if(n>=10){alert('Максимум 10!');return;} addOptInput(n); }
-  function showForm(t) { hideAll(); document.getElementById(t==='create'?'fCreate':t==='join'?'fJoin':'fObserve').style.display='block'; }
+  function showForm(t) {
+    hideAll();
+    document.getElementById(t==='create'?'fCreate':t==='join'?'fJoin':'fObserve').style.display='block';
+    if (t === 'create') onPollTypeChange();
+  }
   function hideAll() { ['fCreate','fJoin','fObserve'].forEach(id => document.getElementById(id).style.display='none'); }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
